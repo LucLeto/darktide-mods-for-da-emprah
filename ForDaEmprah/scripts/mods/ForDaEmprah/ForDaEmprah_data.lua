@@ -1,7 +1,7 @@
 local mod = get_mod("ForDaEmprah")
 
 local function get_options()
-    return {
+	return {
         { text = "option_nil",             value = 0 },
         { text = "option_ammo",            value = 12 },
         { text = "option_ammo_crate",      value = 21 },
@@ -31,7 +31,7 @@ local function get_options()
         --{ text = "option_uncharged_medicae", value = 18 },
         { text = "option_vacuum_capsule",  value = 2 },
         { text = "option_yes",             value = 3 },
-    }
+	}
 end
 
 local default_wheel_values = {
@@ -43,16 +43,46 @@ local default_wheel_values = {
     plugin_wheel_top = 26,
     plugin_wheel_top_left = 25,
     plugin_wheel_left = 24,
-    plugin_wheel_bottom_left = 0,
+	plugin_wheel_bottom_left = 0,
 }
 
+local vanilla_wheel_command_ids = {
+	[1] = true,
+	[22] = true,
+	[23] = true,
+	[24] = true,
+	[25] = true,
+	[26] = true,
+	[27] = true,
+}
+
+local function chat_setting_id(option_text)
+	return "chat_" .. option_text
+end
+
 local function wheel_widget(setting_id)
-    return {
-        setting_id = setting_id,
+	return {
+		setting_id = setting_id,
         type = "dropdown",
         default_value = default_wheel_values[setting_id] or 0,
         options = get_options(),
-    }
+	}
+end
+
+local function get_chat_toggle_widgets()
+	local widgets = {}
+
+	for _, option in ipairs(get_options()) do
+		if option.value > 0 and not vanilla_wheel_command_ids[option.value] then
+			widgets[#widgets + 1] = {
+				setting_id = chat_setting_id(option.text),
+				type = "checkbox",
+				default_value = false,
+			}
+		end
+	end
+
+	return widgets
 end
 
 local function get_keybind_widgets()
@@ -85,12 +115,17 @@ return {
             wheel_widget("plugin_wheel_top_right"),
             wheel_widget("plugin_wheel_left"),
             wheel_widget("plugin_wheel_right"),
-            wheel_widget("plugin_wheel_bottom_left"),
-            wheel_widget("plugin_wheel_bottom"),
-            wheel_widget("plugin_wheel_bottom_right"),
-            {
-                setting_id = "plugin_keybinds",
-                type = "group",
+			wheel_widget("plugin_wheel_bottom_left"),
+			wheel_widget("plugin_wheel_bottom"),
+			wheel_widget("plugin_wheel_bottom_right"),
+			{
+				setting_id = "plugin_chat_messages",
+				type = "group",
+				sub_widgets = get_chat_toggle_widgets(),
+			},
+			{
+				setting_id = "plugin_keybinds",
+				type = "group",
                 sub_widgets = get_keybind_widgets(),
             },
         },

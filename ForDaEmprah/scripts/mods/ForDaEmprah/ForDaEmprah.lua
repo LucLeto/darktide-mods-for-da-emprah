@@ -392,9 +392,9 @@ local function _item_tag(value, fallback)
 end
 
 local function _clone_command(command)
-    if not command then
-        return nil
-    end
+	if not command then
+		return nil
+	end
 
     local cloned_command = {}
 
@@ -402,8 +402,82 @@ local function _clone_command(command)
         cloned_command[key] = value
     end
 
-    return cloned_command
+	return cloned_command
 end
+
+local vanilla_wheel_command_ids = {
+	[1] = true,
+	[22] = true,
+	[23] = true,
+	[24] = true,
+	[25] = true,
+	[26] = true,
+	[27] = true,
+}
+
+local function _chat_setting_id(display_name)
+	return display_name and "chat_" .. display_name or nil
+end
+
+-- Prefer stock loc keys where possible so players without the mod still resolve the chat line correctly.
+local stock_chat_loc_keys_by_display_name = {
+	option_ammo = "loc_pickup_consumable_small_clip_01",
+	option_ammo_crate = "loc_pickup_pocketable_ammo_crate_01",
+	option_cryonic_rod = "loc_pickup_luggable_control_rod_01",
+	option_diamantine = "loc_pickup_small_platinum",
+	option_following = "loc_reply_smart_tag_follow",
+	option_grenade = "loc_pickup_consumable_small_grenade_01",
+	option_grimoire = "loc_pickup_side_mission_pocketable_01",
+	option_health_booster = "loc_pickup_pocketable_01",
+	option_medipack = "loc_pickup_pocketable_medical_crate_01",
+	option_medipack_down = "loc_pickup_deployable_medical_crate_01",
+	option_mine = "loc_reply_smart_tag_dibs",
+	option_plasteel = "loc_pickup_small_metal",
+	option_power_cell = "loc_pickup_luggable_battery_01",
+	option_relic = "loc_pickup_side_mission_consumable_01",
+	option_scripture = "loc_pickup_side_mission_pocketable_02",
+	option_yes = "loc_reply_smart_tag_ok",
+}
+
+local function _optional_chat_message_data(display_name)
+	local stock_loc_key = stock_chat_loc_keys_by_display_name[display_name]
+
+	if stock_loc_key then
+		return {
+			channel = ChannelTags.MISSION,
+			text = stock_loc_key,
+		}
+	end
+
+	return {
+		channel = ChannelTags.MISSION,
+		localize_text = true,
+		localized = false,
+		text = display_name,
+	}
+end
+
+local function _augment_localized_strings()
+	for _, strings in pairs(localized_strings) do
+		local option_keys = {}
+
+		strings.plugin_chat_messages = strings.plugin_chat_messages or "Extra Chat Messages"
+
+		for key in pairs(strings) do
+			if string.find(key, "option_", 1, true) == 1 then
+				option_keys[#option_keys + 1] = key
+			end
+		end
+
+		for i = 1, #option_keys do
+			local option_key = option_keys[i]
+
+			strings[_chat_setting_id(option_key)] = strings[option_key]
+		end
+	end
+end
+
+_augment_localized_strings()
 
 local commands = {
     [1] = {
@@ -639,22 +713,28 @@ local commands = {
             voice_tag_id = VOQueryConstants.trigger_ids.com_wheel_vo_thank_you,
         },
     },
-    [28] = {
-        icon = "content/ui/materials/hud/interactions/icons/default",
-        display_name = "option_sorry",
-        chat_message_data = {
-            channel = ChannelTags.MISSION,
-            localized = false,
-            text = "Sorry",
-        },
-        -- Darktide does not expose a dedicated "sorry" bark in the current on-demand VO tables.
-        use_apology_rule = true,
-        use_custom_execution = true,
-    },
+	[28] = {
+		icon = "content/ui/materials/hud/interactions/icons/default",
+		display_name = "option_sorry",
+		-- Darktide does not expose a dedicated "sorry" bark in the current on-demand VO tables.
+		use_apology_rule = true,
+		use_custom_execution = true,
+	},
 }
 
+local function _setup_optional_chat_messages()
+	for command_id, command in pairs(commands) do
+		if not vanilla_wheel_command_ids[command_id] and command.display_name then
+			command.chat_message_data = _optional_chat_message_data(command.display_name)
+			command.chat_message_data.setting_id = _chat_setting_id(command.display_name)
+		end
+	end
+end
+
+_setup_optional_chat_messages()
+
 local wheel_settings = {
-    [POS_BOTTOM] = "plugin_wheel_bottom",
+	[POS_BOTTOM] = "plugin_wheel_bottom",
     [POS_BOTTOM_RIGHT] = "plugin_wheel_bottom_right",
     [POS_RIGHT] = "plugin_wheel_right",
     [POS_TOP_RIGHT] = "plugin_wheel_top_right",
@@ -700,19 +780,31 @@ local function _chat_channel(channel_tag)
 end
 
 local function _send_chat_message(chat_message_data)
-    if not chat_message_data then
-        return
-    end
+	if not chat_message_data then
+		return
+	end
 
-    local chat_manager = Managers.chat
-    local channel_handle = _chat_channel(chat_message_data.channel)
+	local setting_id = chat_message_data.setting_id
+
+	if setting_id and not mod:get(setting_id) then
+		return
+	end
+
+	local chat_manager = Managers.chat
+	local channel_handle = _chat_channel(chat_message_data.channel)
 
     if not chat_manager or not channel_handle then
         return
     end
 
     if chat_message_data.localized == false then
-        chat_manager:send_channel_message(channel_handle, chat_message_data.text)
+		local text = chat_message_data.text
+
+		if chat_message_data.localize_text then
+			text = mod:localize(text)
+		end
+
+        chat_manager:send_channel_message(channel_handle, text)
     else
         chat_manager:send_loc_channel_message(channel_handle, chat_message_data.text, chat_message_data.context)
     end
