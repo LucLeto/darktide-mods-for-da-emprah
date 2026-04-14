@@ -2,17 +2,81 @@
 
 `ForDaEmprah` is a Warhammer 40,000: Darktide mod that adds extra communication options as keybinds and wheel entries.
 
-Current highlights:
+## Features overview
 
-- Restored a number of broken voice-line and wheel actions.
-- Updated item-tag voice calls for things like medipacks, ammo crates, and med stimm.
-- Added a `Sorry` option as both a keybind and a wheel entry.
+### Expanded communication wheel
+- Extends the communication wheel to **12 slots**.
+- Lets you assign each slot freely, so you can build your own layout instead of being locked to the vanilla arrangement.
+- Keeps the most common stock calls in familiar positions by default, while opening the rest of the wheel for additional commands.
+
+### Extra callouts and item call-ins
+The mod adds support for a wider set of communication options, including:
+
+- **Combat and team calls**
+  - For Da Emprah!
+  - Yes
+  - No
+  - Sorry
+  - Following
+  - Need Ammo
+  - Need Healing
+  - Look There
+  - Go There
+  - Enemy
+  - Thanks
+  - Mine
+
+- **Items and objectives**
+  - Ammo
+  - Ammo Crate
+  - Grenade
+  - Med Stimm
+  - Medipack
+  - Medipack Down
+  - Medicae Station
+  - Cryonic Rod
+  - Power Cell
+  - Vacuum Capsule
+  - Scripture
+  - Grimoire
+  - Relic
+  - Plasteel
+  - Diamantine
+
+### Direct keybind support
+- Every supported command can be bound to its own key.
+- Keybinds trigger the same communication behavior as the wheel entry, including voice playback, smart tags, and chat output where applicable.
+- Input is ignored while menus or UI input are active, so it does not fire accidentally while navigating interfaces.
+
+### Optional chat messages for extra commands
+- Extra non-vanilla callouts can also post to **mission chat**.
+- Chat output can be toggled **per command**, so you can decide exactly which extra wheel actions should also write a message.
+- Where possible, the mod uses existing Darktide localization keys so the chat line resolves correctly for other players as well.
+
+### Smart tagging support
+- Location-based commands such as **Look There**, **Go There**, and **Enemy** still trigger the appropriate smart-tag behavior.
+- Item and objective-related options use matching on-demand voice events for more natural communication.
+
+### Custom apology behavior
+- The **Sorry** command uses a custom execution path.
+- Instead of a generic line, it attempts to play a fitting apology response based on the player class and available teammate dialogue rules.
+
+### Localization
+- Includes built-in localization support for multiple game languages.
+- `mod_title` intentionally keeps the Warhammer 40k Ogryn-style flavor, while the rest of the mod uses normal language for labels and descriptions.
 
 ## Installation
 
 1. Copy the `ForDaEmprah` folder into your Darktide Mod Framework `mods` directory.
 2. Make sure the mod is enabled in your Darktide mod list.
 3. Configure wheel slots and keybinds in the mod settings menu.
+
+## Configuration
+
+After enabling the mod, you can configure:
+- the command assigned to each of the 12 wheel slots
+- which extra commands should also post to mission chat
+- individual keybinds for each available command
 
 ## Important Disclaimer
 
@@ -39,5 +103,6 @@ The policy guidance this repository follows is:
 
 ## Notes
 
-- `Sorry` is implemented as a best-effort apology action because the current Darktide source does not expose a normal on-demand `sorry` wheel trigger.
-- Some lines in Darktide are profile- and context-dependent, so behavior can vary by character voice.
+- Vanilla wheel commands are preserved and can still be placed on the wheel or bound directly.
+- The wheel automatically adapts its spacing to the number of active entries.
+- Some commands are focused on voice and chat communication, while others also create smart tags depending on the command type.

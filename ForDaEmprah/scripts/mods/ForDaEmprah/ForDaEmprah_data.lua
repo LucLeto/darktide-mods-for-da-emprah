@@ -1,5 +1,20 @@
 local mod = get_mod("ForDaEmprah")
 
+local clock_slots = {
+    "12",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+}
+
 local function get_options()
 	return {
         { text = "option_nil",             value = 0 },
@@ -35,15 +50,19 @@ local function get_options()
 end
 
 local default_wheel_values = {
-    -- Mirror the stock communication wheel layout so the extra entries stay additive by default.
-    plugin_wheel_bottom = 1,
-    plugin_wheel_bottom_right = 23,
-    plugin_wheel_right = 27,
-    plugin_wheel_top_right = 22,
-    plugin_wheel_top = 26,
-    plugin_wheel_top_left = 25,
-    plugin_wheel_left = 24,
-	plugin_wheel_bottom_left = 0,
+    -- Populate the full clock wheel by default while keeping the most common stock calls in familiar areas.
+    plugin_wheel_12 = 26,
+    plugin_wheel_1 = 25,
+    plugin_wheel_2 = 22,
+    plugin_wheel_3 = 27,
+    plugin_wheel_4 = 23,
+    plugin_wheel_5 = 3,
+    plugin_wheel_6 = 1,
+    plugin_wheel_7 = 28,
+    plugin_wheel_8 = 4,
+    plugin_wheel_9 = 24,
+    plugin_wheel_10 = 16,
+    plugin_wheel_11 = 11,
 }
 
 local vanilla_wheel_command_ids = {
@@ -60,6 +79,10 @@ local function chat_setting_id(option_text)
 	return "chat_" .. option_text
 end
 
+local function wheel_setting_id(clock_slot)
+    return "plugin_wheel_" .. clock_slot
+end
+
 local function wheel_widget(setting_id)
 	return {
 		setting_id = setting_id,
@@ -69,6 +92,16 @@ local function wheel_widget(setting_id)
 	}
 end
 
+local function get_wheel_widgets()
+    local widgets = {}
+
+    for i, clock_slot in ipairs(clock_slots) do
+        widgets[i] = wheel_widget(wheel_setting_id(clock_slot))
+    end
+
+    return widgets
+end
+
 local function get_chat_toggle_widgets()
 	local widgets = {}
 
@@ -76,6 +109,7 @@ local function get_chat_toggle_widgets()
 		if option.value > 0 and not vanilla_wheel_command_ids[option.value] then
 			widgets[#widgets + 1] = {
 				setting_id = chat_setting_id(option.text),
+				title = option.text,
 				type = "checkbox",
 				default_value = false,
 			}
@@ -104,30 +138,29 @@ local function get_keybind_widgets()
     return widgets
 end
 
+local function get_widgets()
+    local widgets = get_wheel_widgets()
+
+    widgets[#widgets + 1] = {
+        setting_id = "plugin_chat_messages",
+        type = "group",
+        sub_widgets = get_chat_toggle_widgets(),
+    }
+
+    widgets[#widgets + 1] = {
+        setting_id = "plugin_keybinds",
+        type = "group",
+        sub_widgets = get_keybind_widgets(),
+    }
+
+    return widgets
+end
+
 return {
     name = mod:localize("mod_title"),
     description = mod:localize("mod_description"),
     is_togglable = true,
     options = {
-        widgets = {
-            wheel_widget("plugin_wheel_top_left"),
-            wheel_widget("plugin_wheel_top"),
-            wheel_widget("plugin_wheel_top_right"),
-            wheel_widget("plugin_wheel_left"),
-            wheel_widget("plugin_wheel_right"),
-			wheel_widget("plugin_wheel_bottom_left"),
-			wheel_widget("plugin_wheel_bottom"),
-			wheel_widget("plugin_wheel_bottom_right"),
-			{
-				setting_id = "plugin_chat_messages",
-				type = "group",
-				sub_widgets = get_chat_toggle_widgets(),
-			},
-			{
-				setting_id = "plugin_keybinds",
-				type = "group",
-                sub_widgets = get_keybind_widgets(),
-            },
-        },
+        widgets = get_widgets(),
     },
 }
