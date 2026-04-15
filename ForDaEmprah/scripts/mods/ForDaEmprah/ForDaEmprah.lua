@@ -3,397 +3,22 @@ local HudElementSmartTaggingSettings = require("scripts/ui/hud/elements/smart_ta
 local InputDevice = require("scripts/managers/input/input_device")
 local VOQueryConstants = require("scripts/settings/dialogue/vo_query_constants")
 local Vo = require("scripts/utilities/vo")
+local definitions = require("scripts/mods/ForDaEmprah/ForDaEmprah_definitions")
 
 local mod = get_mod("ForDaEmprah")
 
 local ChannelTags = ChatManagerConstants.ChannelTag
 local HudElementSmartTagging_instance
 
-local CLOCK_WHEEL_SLOT_COUNT = 12
-local wheel_clock_slots = {
-    "12",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "10",
-    "11",
-}
+local CLOCK_SLOTS = definitions.CLOCK_SLOTS
+local CLOCK_WHEEL_SLOT_COUNT = #CLOCK_SLOTS
 local wheel_settings = {}
 
-for i, clock_slot in ipairs(wheel_clock_slots) do
-    wheel_settings[i] = "plugin_wheel_" .. clock_slot
+for i, clock_slot in ipairs(CLOCK_SLOTS) do
+    wheel_settings[i] = definitions.wheel_setting_id(clock_slot)
 end
 
 HudElementSmartTaggingSettings.wheel_slots = CLOCK_WHEEL_SLOT_COUNT
-
-local localized_strings = {
-    en = {
-        option_ammo = "Ammo",
-        option_ammo_crate = "Ammo Crate",
-        option_cryonic_rod = "Cryonic Rod",
-        option_diamantine = "Diamantine",
-        option_enemy = "Enemy",
-        option_following = "Following",
-        option_for_the_emperor = "For Da Emprah!",
-        option_go_there = "Go There",
-        option_grenade = "Grenade",
-        option_grimoire = "Grimoire",
-        option_health_booster = "Med Stimm",
-        option_look_there = "Look There",
-        option_medicae_station = "Medicae Station",
-        option_medipack = "Medipack",
-        option_medipack_down = "Medipack Down",
-        option_mine = "Mine",
-        option_need_ammo = "Need Ammo",
-        option_need_healing = "Need Healing",
-        option_no = "No",
-        option_plasteel = "Plasteel",
-        option_power_cell = "Power Cell",
-        option_relic = "Relic",
-        option_scripture = "Scripture",
-        option_sorry = "Sorry",
-        option_thanks = "Thanks",
-        option_uncharged_medicae = "Uncharged Medicae",
-        option_vacuum_capsule = "Vacuum Capsule",
-        option_yes = "Yes",
-    },
-    fr = {
-        option_ammo = "Munitions",
-        option_ammo_crate = "Caisse de munitions",
-        option_cryonic_rod = "Tige cryonique",
-        option_diamantine = "Diamantine",
-        option_enemy = "Ennemi",
-        option_following = "Je te suis",
-        option_for_the_emperor = "Pour l'Emp'reur !",
-        option_go_there = "Allez la-bas",
-        option_grenade = "Grenade",
-        option_grimoire = "Grimoire",
-        option_health_booster = "Stim medical",
-        option_look_there = "Regardez la-bas",
-        option_medicae_station = "Station Medicae",
-        option_medipack = "Medipack",
-        option_medipack_down = "Medipack pose",
-        option_mine = "Pour moi",
-        option_need_ammo = "Besoin de munitions",
-        option_need_healing = "Besoin de soins",
-        option_no = "Non",
-        option_plasteel = "Plasteel",
-        option_power_cell = "Cellule d'energie",
-        option_relic = "Relique",
-        option_scripture = "Scripture",
-        option_sorry = "Desole",
-        option_thanks = "Merci",
-        option_uncharged_medicae = "Medicae sans charge",
-        option_vacuum_capsule = "Vacuum Capsule",
-        option_yes = "Oui",
-    },
-    de = {
-        option_ammo = "Munition",
-        option_ammo_crate = "Munitionskiste",
-        option_cryonic_rod = "Kryonikstab",
-        option_diamantine = "Diamantin",
-        option_enemy = "Feind",
-        option_following = "Ich folge dir",
-        option_for_the_emperor = "Fur'n Imperator!",
-        option_go_there = "Geht dorthin",
-        option_grenade = "Granate",
-        option_grimoire = "Grimoire",
-        option_health_booster = "Med-Stim",
-        option_look_there = "Dort druben",
-        option_medicae_station = "Medicae-Station",
-        option_medipack = "Medipack",
-        option_medipack_down = "Medipack platziert",
-        option_mine = "Fur mich",
-        option_need_ammo = "Brauche Munition",
-        option_need_healing = "Brauche Heilung",
-        option_no = "Nein",
-        option_plasteel = "Plasteel",
-        option_power_cell = "Energiezelle",
-        option_relic = "Reliquie",
-        option_scripture = "Schriftrolle",
-        option_sorry = "Entschuldigung",
-        option_thanks = "Danke",
-        option_uncharged_medicae = "Ungeladene Medicae-Station",
-        option_vacuum_capsule = "Vacuum Capsule",
-        option_yes = "Ja",
-    },
-    it = {
-        option_ammo = "Munizioni",
-        option_ammo_crate = "Cassa di munizioni",
-        option_cryonic_rod = "Asta criogenica",
-        option_diamantine = "Diamantina",
-        option_enemy = "Nemico",
-        option_following = "Ti seguo",
-        option_for_the_emperor = "Pe' l'Imperatore!",
-        option_go_there = "Andate li",
-        option_grenade = "Granata",
-        option_grimoire = "Grimorio",
-        option_health_booster = "Stim medico",
-        option_look_there = "Guardate li",
-        option_medicae_station = "Stazione Medicae",
-        option_medipack = "Medipack",
-        option_medipack_down = "Medipack posato",
-        option_mine = "A me",
-        option_need_ammo = "Ho bisogno di munizioni",
-        option_need_healing = "Ho bisogno di cure",
-        option_no = "No",
-        option_plasteel = "Plasteel",
-        option_power_cell = "Cella di energia",
-        option_relic = "Reliquia",
-        option_scripture = "Scrittura",
-        option_sorry = "Scusa",
-        option_thanks = "Grazie",
-        option_uncharged_medicae = "Stazione Medicae scarica",
-        option_vacuum_capsule = "Capsula a vuoto",
-        option_yes = "Si",
-    },
-    es = {
-        option_ammo = "Municion",
-        option_ammo_crate = "Caja de municion",
-        option_cryonic_rod = "Vara crionica",
-        option_diamantine = "Diamantina",
-        option_enemy = "Enemigo",
-        option_following = "Te sigo",
-        option_for_the_emperor = "Pal Emperador!",
-        option_go_there = "Id alli",
-        option_grenade = "Granada",
-        option_grimoire = "Grimorio",
-        option_health_booster = "Estimulante medico",
-        option_look_there = "Mirad alli",
-        option_medicae_station = "Estacion Medicae",
-        option_medipack = "Medipack",
-        option_medipack_down = "Medipack desplegado",
-        option_mine = "Para mi",
-        option_need_ammo = "Necesito municion",
-        option_need_healing = "Necesito curacion",
-        option_no = "No",
-        option_plasteel = "Plasteel",
-        option_power_cell = "Celula de energia",
-        option_relic = "Reliquia",
-        option_scripture = "Escritura",
-        option_sorry = "Lo siento",
-        option_thanks = "Gracias",
-        option_uncharged_medicae = "Estacion Medicae sin carga",
-        option_vacuum_capsule = "Capsula de vacio",
-        option_yes = "Si",
-    },
-    pl = {
-        option_ammo = "Amunicja",
-        option_ammo_crate = "Skrzynka z amunicja",
-        option_cryonic_rod = "Pret kriogeniczny",
-        option_diamantine = "Diamentyna",
-        option_enemy = "Wrog",
-        option_following = "Ide za toba",
-        option_for_the_emperor = "Za Imperatora!",
-        option_go_there = "Idzcie tam",
-        option_grenade = "Granat",
-        option_grimoire = "Grimuar",
-        option_health_booster = "Stym medyczny",
-        option_look_there = "Spojrzcie tam",
-        option_medicae_station = "Stacja Medicae",
-        option_medipack = "Apteczka",
-        option_medipack_down = "Apteczka rozstawiona",
-        option_mine = "Dla mnie",
-        option_need_ammo = "Potrzebuje amunicji",
-        option_need_healing = "Potrzebuje leczenia",
-        option_no = "Nie",
-        option_plasteel = "Plasteel",
-        option_power_cell = "Ogniwo zasilania",
-        option_relic = "Relikwia",
-        option_scripture = "Pismo",
-        option_sorry = "Przepraszam",
-        option_thanks = "Dzieki",
-        option_uncharged_medicae = "Nieaktywna stacja Medicae",
-        option_vacuum_capsule = "Kapsula prozniowa",
-        option_yes = "Tak",
-    },
-    ["pt-br"] = {
-        option_ammo = "Municao",
-        option_ammo_crate = "Caixa de municao",
-        option_cryonic_rod = "Haste crionica",
-        option_diamantine = "Diamantina",
-        option_enemy = "Inimigo",
-        option_following = "Estou seguindo",
-        option_for_the_emperor = "Pro Imperador!",
-        option_go_there = "Vao para la",
-        option_grenade = "Granada",
-        option_grimoire = "Grimorio",
-        option_health_booster = "Estimulante medico",
-        option_look_there = "Olhem ali",
-        option_medicae_station = "Estacao Medicae",
-        option_medipack = "Kit medico",
-        option_medipack_down = "Kit medico colocado",
-        option_mine = "Para mim",
-        option_need_ammo = "Preciso de municao",
-        option_need_healing = "Preciso de cura",
-        option_no = "Nao",
-        option_plasteel = "Plasteel",
-        option_power_cell = "Celula de energia",
-        option_relic = "Reliquia",
-        option_scripture = "Escritura",
-        option_sorry = "Desculpa",
-        option_thanks = "Obrigado",
-        option_uncharged_medicae = "Estacao Medicae sem carga",
-        option_vacuum_capsule = "Capsula de vacuo",
-        option_yes = "Sim",
-    },
-    ru = {
-        option_ammo = "Боеприпасы",
-        option_ammo_crate = "Ящик с боеприпасами",
-        option_cryonic_rod = "Крионический стержень",
-        option_diamantine = "Диамантин",
-        option_enemy = "Враг",
-        option_following = "Следую за тобой",
-        option_for_the_emperor = "За Императора!",
-        option_go_there = "Идите туда",
-        option_grenade = "Граната",
-        option_grimoire = "Гримуар",
-        option_health_booster = "Мед-стим",
-        option_look_there = "Смотрите туда",
-        option_medicae_station = "Станция Medicae",
-        option_medipack = "Медпак",
-        option_medipack_down = "Медпак установлен",
-        option_mine = "Мне",
-        option_need_ammo = "Нужны боеприпасы",
-        option_need_healing = "Нужно лечение",
-        option_no = "Нет",
-        option_plasteel = "Пласталь",
-        option_power_cell = "Энергоячейка",
-        option_relic = "Реликвия",
-        option_scripture = "Писание",
-        option_sorry = "Извини",
-        option_thanks = "Спасибо",
-        option_uncharged_medicae = "Станция Medicae без заряда",
-        option_vacuum_capsule = "Вакуумная капсула",
-        option_yes = "Да",
-    },
-    ja = {
-        option_ammo = "弾薬",
-        option_ammo_crate = "弾薬箱",
-        option_cryonic_rod = "クライオニックロッド",
-        option_diamantine = "ダイアマンタイン",
-        option_enemy = "敵",
-        option_following = "ついていく",
-        option_for_the_emperor = "皇帝陛下のためだぁ！",
-        option_go_there = "あそこへ行け",
-        option_grenade = "グレネード",
-        option_grimoire = "グリモア",
-        option_health_booster = "医療スティム",
-        option_look_there = "あそこを見ろ",
-        option_medicae_station = "メディカエステーション",
-        option_medipack = "メディパック",
-        option_medipack_down = "メディパック設置",
-        option_mine = "こっちにくれ",
-        option_need_ammo = "弾薬が必要",
-        option_need_healing = "回復が必要",
-        option_no = "いいえ",
-        option_plasteel = "プラスチール",
-        option_power_cell = "パワーセル",
-        option_relic = "聖遺物",
-        option_scripture = "聖典",
-        option_sorry = "ごめん",
-        option_thanks = "ありがとう",
-        option_uncharged_medicae = "充電切れのメディカエ",
-        option_vacuum_capsule = "真空カプセル",
-        option_yes = "はい",
-    },
-    ko = {
-        option_ammo = "탄약",
-        option_ammo_crate = "탄약 상자",
-        option_cryonic_rod = "크라이오닉 로드",
-        option_diamantine = "다이아만틴",
-        option_enemy = "적",
-        option_following = "따라갈게",
-        option_for_the_emperor = "황제를 위해!",
-        option_go_there = "저기로 가",
-        option_grenade = "수류탄",
-        option_grimoire = "그리모어",
-        option_health_booster = "의료 자극제",
-        option_look_there = "저기를 봐",
-        option_medicae_station = "메디카에 스테이션",
-        option_medipack = "메디팩",
-        option_medipack_down = "메디팩 설치",
-        option_mine = "나 줘",
-        option_need_ammo = "탄약 필요",
-        option_need_healing = "치료 필요",
-        option_no = "아니오",
-        option_plasteel = "플라스틸",
-        option_power_cell = "동력 셀",
-        option_relic = "유물",
-        option_scripture = "경전",
-        option_sorry = "미안",
-        option_thanks = "고마워",
-        option_uncharged_medicae = "충전 안 된 메디카에",
-        option_vacuum_capsule = "진공 캡슐",
-        option_yes = "예",
-    },
-    ["zh-cn"] = {
-        option_ammo = "弹药",
-        option_ammo_crate = "弹药箱",
-        option_cryonic_rod = "低温棒",
-        option_diamantine = "Diamantine",
-        option_enemy = "敌人",
-        option_following = "跟着你",
-        option_for_the_emperor = "为了帝皇！",
-        option_go_there = "去那里",
-        option_grenade = "手雷",
-        option_grimoire = "魔典",
-        option_health_booster = "医疗兴奋剂",
-        option_look_there = "看那里",
-        option_medicae_station = "医疗站",
-        option_medipack = "医疗包",
-        option_medipack_down = "医疗包已放置",
-        option_mine = "给我",
-        option_need_ammo = "需要弹药",
-        option_need_healing = "需要治疗",
-        option_no = "不",
-        option_plasteel = "塑钢",
-        option_power_cell = "能源电池",
-        option_relic = "圣物",
-        option_scripture = "圣典",
-        option_sorry = "抱歉",
-        option_thanks = "谢谢",
-        option_uncharged_medicae = "未充能医疗站",
-        option_vacuum_capsule = "真空胶囊",
-        option_yes = "是",
-    },
-    ["zh-tw"] = {
-        option_ammo = "彈藥",
-        option_ammo_crate = "彈藥箱",
-        option_cryonic_rod = "低溫棒",
-        option_diamantine = "Diamantine",
-        option_enemy = "敵人",
-        option_following = "跟著你",
-        option_for_the_emperor = "為了帝皇！",
-        option_go_there = "去那裡",
-        option_grenade = "手榴彈",
-        option_grimoire = "魔典",
-        option_health_booster = "醫療興奮劑",
-        option_look_there = "看那裡",
-        option_medicae_station = "醫療站",
-        option_medipack = "醫療包",
-        option_medipack_down = "醫療包已放置",
-        option_mine = "給我",
-        option_need_ammo = "需要彈藥",
-        option_need_healing = "需要治療",
-        option_no = "不",
-        option_plasteel = "塑鋼",
-        option_power_cell = "能源電池",
-        option_relic = "聖物",
-        option_scripture = "聖典",
-        option_sorry = "抱歉",
-        option_thanks = "謝謝",
-        option_uncharged_medicae = "未充能醫療站",
-        option_vacuum_capsule = "真空膠囊",
-        option_yes = "是",
-    },
-}
 
 local function _item_tag(value, fallback)
     if type(value) ~= "string" then
@@ -408,9 +33,9 @@ local function _item_tag(value, fallback)
 end
 
 local function _clone_command(command)
-	if not command then
-		return nil
-	end
+    if not command then
+        return nil
+    end
 
     local cloned_command = {}
 
@@ -418,50 +43,50 @@ local function _clone_command(command)
         cloned_command[key] = value
     end
 
-	return cloned_command
+    return cloned_command
 end
 
 local vanilla_wheel_command_ids = {
-	[1] = true,
-	[22] = true,
-	[23] = true,
-	[24] = true,
-	[25] = true,
-	[26] = true,
-	[27] = true,
+    [1] = true,
+    [22] = true,
+    [23] = true,
+    [24] = true,
+    [25] = true,
+    [26] = true,
+    [27] = true,
 }
 
 local function _chat_setting_id(display_name)
-	return display_name and "chat_" .. display_name or nil
+    return display_name and "chat_" .. display_name or nil
 end
 
 -- Prefer stock loc keys where possible so players without the mod still resolve the chat line correctly.
 local stock_chat_loc_keys_by_display_name = {
-	option_ammo = "loc_pickup_consumable_small_clip_01",
-	option_ammo_crate = "loc_pickup_pocketable_ammo_crate_01",
-	option_cryonic_rod = "loc_pickup_luggable_control_rod_01",
-	option_diamantine = "loc_pickup_small_platinum",
-	option_following = "loc_reply_smart_tag_follow",
-	option_grenade = "loc_pickup_consumable_small_grenade_01",
-	option_grimoire = "loc_pickup_side_mission_pocketable_01",
-	option_health_booster = "loc_pickup_pocketable_01",
-	option_medipack = "loc_pickup_pocketable_medical_crate_01",
-	option_medipack_down = "loc_pickup_deployable_medical_crate_01",
-	option_mine = "loc_reply_smart_tag_dibs",
-	option_plasteel = "loc_pickup_small_metal",
-	option_power_cell = "loc_pickup_luggable_battery_01",
-	option_relic = "loc_pickup_side_mission_consumable_01",
-	option_scripture = "loc_pickup_side_mission_pocketable_02",
-	option_yes = "loc_reply_smart_tag_ok",
+    option_ammo = "loc_pickup_consumable_small_clip_01",
+    option_ammo_crate = "loc_pickup_pocketable_ammo_crate_01",
+    option_cryonic_rod = "loc_pickup_luggable_control_rod_01",
+    option_diamantine = "loc_pickup_small_platinum",
+    option_following = "loc_reply_smart_tag_follow",
+    option_grenade = "loc_pickup_consumable_small_grenade_01",
+    option_grimoire = "loc_pickup_side_mission_pocketable_01",
+    option_health_booster = "loc_pickup_pocketable_01",
+    option_medipack = "loc_pickup_pocketable_medical_crate_01",
+    option_medipack_down = "loc_pickup_deployable_medical_crate_01",
+    option_mine = "loc_reply_smart_tag_dibs",
+    option_plasteel = "loc_pickup_small_metal",
+    option_power_cell = "loc_pickup_luggable_battery_01",
+    option_relic = "loc_pickup_side_mission_consumable_01",
+    option_scripture = "loc_pickup_side_mission_pocketable_02",
+    option_yes = "loc_reply_smart_tag_ok",
 }
 
 local function _optional_chat_message_data(display_name)
-	local stock_loc_key = stock_chat_loc_keys_by_display_name[display_name]
+    local stock_loc_key = stock_chat_loc_keys_by_display_name[display_name]
 
-	return {
-		channel = ChannelTags.MISSION,
-		text = stock_loc_key or display_name,
-	}
+    return {
+        channel = ChannelTags.MISSION,
+        text = stock_loc_key or display_name,
+    }
 end
 
 local function _chat_enabled_for_command(command)
@@ -471,27 +96,6 @@ local function _chat_enabled_for_command(command)
     return not setting_id or mod:get(setting_id)
 end
 
-local function _augment_localized_strings()
-	for _, strings in pairs(localized_strings) do
-		local option_keys = {}
-
-		strings.plugin_chat_messages = strings.plugin_chat_messages or "Extra Chat Messages"
-
-		for key in pairs(strings) do
-			if string.find(key, "option_", 1, true) == 1 then
-				option_keys[#option_keys + 1] = key
-			end
-		end
-
-		for i = 1, #option_keys do
-			local option_key = option_keys[i]
-
-			strings[_chat_setting_id(option_key)] = strings[option_key]
-		end
-	end
-end
-
-_augment_localized_strings()
 
 local commands = {
     [1] = {
@@ -519,7 +123,7 @@ local commands = {
         },
     },
     [4] = {
-        icon = "content/ui/materials/hud/interactions/icons/default",
+        icon = "content/ui/materials/icons/list_buttons/cross",
         display_name = "option_no",
         voice_event_data = {
             voice_tag_concept = VOQueryConstants.concepts.on_demand_com_wheel,
@@ -727,22 +331,22 @@ local commands = {
             voice_tag_id = VOQueryConstants.trigger_ids.com_wheel_vo_thank_you,
         },
     },
-	[28] = {
-		icon = "content/ui/materials/hud/interactions/icons/default",
-		display_name = "option_sorry",
-		-- Darktide does not expose a dedicated "sorry" bark in the current on-demand VO tables.
-		use_apology_rule = true,
-		use_custom_execution = true,
-	},
+    [28] = {
+        icon = "content/ui/materials/hud/interactions/icons/default",
+        display_name = "option_sorry",
+        -- Darktide does not expose a dedicated "sorry" bark in the current on-demand VO tables.
+        use_apology_rule = true,
+        use_custom_execution = true,
+    },
 }
 
 local function _setup_optional_chat_messages()
-	for command_id, command in pairs(commands) do
-		if not vanilla_wheel_command_ids[command_id] and command.display_name then
-			command.chat_message_data = _optional_chat_message_data(command.display_name)
-			command.chat_message_data.setting_id = _chat_setting_id(command.display_name)
-		end
-	end
+    for command_id, command in pairs(commands) do
+        if not vanilla_wheel_command_ids[command_id] and command.display_name then
+            command.chat_message_data = _optional_chat_message_data(command.display_name)
+            command.chat_message_data.setting_id = _chat_setting_id(command.display_name)
+        end
+    end
 end
 
 _setup_optional_chat_messages()
@@ -820,21 +424,10 @@ end
 local function _wheel_radius_bounds(visible_count)
     local extra_radius = math.max(visible_count - 8, 0) * 12
 
-    return HudElementSmartTaggingSettings.min_radius + extra_radius, HudElementSmartTaggingSettings.max_radius + extra_radius
+    return HudElementSmartTaggingSettings.min_radius + extra_radius,
+        HudElementSmartTaggingSettings.max_radius + extra_radius
 end
 
-mod:hook(LocalizationManager, "localize", function(func, self, key, no_cache, context)
-    local english_strings = localized_strings.en
-
-    if key and english_strings[key] then
-        local language = self.language and self:language() or self._language or "en"
-        local active_strings = localized_strings[language] or english_strings
-
-        self._string_cache[key] = active_strings[key] or english_strings[key]
-    end
-
-    return func(self, key, no_cache, context)
-end)
 
 local function _chat_channel(channel_tag)
     local chat_manager = Managers.chat
@@ -859,29 +452,29 @@ local function _chat_channel(channel_tag)
 end
 
 local function _send_chat_message(chat_message_data)
-	if not chat_message_data then
-		return
-	end
+    if not chat_message_data then
+        return
+    end
 
-	local setting_id = chat_message_data.setting_id
+    local setting_id = chat_message_data.setting_id
 
-	if setting_id and not mod:get(setting_id) then
-		return
-	end
+    if setting_id and not mod:get(setting_id) then
+        return
+    end
 
-	local chat_manager = Managers.chat
-	local channel_handle = _chat_channel(chat_message_data.channel)
+    local chat_manager = Managers.chat
+    local channel_handle = _chat_channel(chat_message_data.channel)
 
     if not chat_manager or not channel_handle then
         return
     end
 
     if chat_message_data.localized == false then
-		local text = chat_message_data.text
+        local text = chat_message_data.text
 
-		if chat_message_data.localize_text then
-			text = mod:localize(text)
-		end
+        if chat_message_data.localize_text then
+            text = mod:localize(text)
+        end
 
         chat_manager:send_channel_message(channel_handle, text)
     else
@@ -1121,60 +714,63 @@ mod:hook("HudElementSmartTagging", "_update_widget_locations", function(func, se
     end
 end)
 
-mod:hook("HudElementSmartTagging", "_update_wheel_presentation", function(func, self, dt, t, ui_renderer, render_settings, input_service)
-    local screen_width, screen_height = RESOLUTION_LOOKUP.width, RESOLUTION_LOOKUP.height
-    local scale = render_settings.scale
-    local cursor = input_service and input_service:get("cursor")
+mod:hook("HudElementSmartTagging", "_update_wheel_presentation",
+    function(func, self, dt, t, ui_renderer, render_settings, input_service)
+        local screen_width, screen_height = RESOLUTION_LOOKUP.width, RESOLUTION_LOOKUP.height
+        local scale = render_settings.scale
+        local cursor = input_service and input_service:get("cursor")
 
-    if input_service and InputDevice.gamepad_active then
-        cursor = input_service:get("navigate_controller_right")
-        cursor[1] = screen_width * 0.5 + cursor[1] * screen_width * 0.5
-        cursor[2] = screen_height * 0.5 - cursor[2] * screen_height * 0.5
-    end
-
-    if not cursor then
-        return
-    end
-
-    local cursor_distance_from_center = math.distance_2d(screen_width * 0.5, screen_height * 0.5, cursor[1], cursor[2])
-    local cursor_visual_angle = math.angle(screen_width * 0.5, screen_height * 0.5, cursor[1], cursor[2]) - math.pi * 0.5
-    local cursor_selection_angle = _screen_angle(screen_width * 0.5, screen_height * 0.5, cursor[1], cursor[2])
-    local visible_count = self._mod_active_wheel_option_count or 0
-    local entry_hover_degrees_half = _mouse_hover_angle(visible_count) * 0.5
-    local any_hover = false
-    local hovered_entry
-    local entries = self._entries
-
-    for i = 1, #entries do
-        local entry = entries[i]
-        local widget = entry.widget
-        local is_hover = false
-
-        if entry.option and cursor_distance_from_center > 130 * scale then
-            local widget_angle = _screen_angle(0, 0, widget.offset[1], widget.offset[2])
-            local angle_diff = math.abs(_angle_distance(widget_angle, cursor_selection_angle))
-
-            if angle_diff <= entry_hover_degrees_half then
-                is_hover = true
-                any_hover = true
-                hovered_entry = entry
-            end
+        if input_service and InputDevice.gamepad_active then
+            cursor = input_service:get("navigate_controller_right")
+            cursor[1] = screen_width * 0.5 + cursor[1] * screen_width * 0.5
+            cursor[2] = screen_height * 0.5 - cursor[2] * screen_height * 0.5
         end
 
-        widget.content.hotspot.force_hover = is_hover
-    end
+        if not cursor then
+            return
+        end
 
-    local wheel_background_widget = self._widgets_by_name.wheel_background
+        local cursor_distance_from_center = math.distance_2d(screen_width * 0.5, screen_height * 0.5, cursor[1],
+            cursor[2])
+        local cursor_visual_angle = math.angle(screen_width * 0.5, screen_height * 0.5, cursor[1], cursor[2]) -
+            math.pi * 0.5
+        local cursor_selection_angle = _screen_angle(screen_width * 0.5, screen_height * 0.5, cursor[1], cursor[2])
+        local visible_count = self._mod_active_wheel_option_count or 0
+        local entry_hover_degrees_half = _mouse_hover_angle(visible_count) * 0.5
+        local any_hover = false
+        local hovered_entry
+        local entries = self._entries
 
-    wheel_background_widget.content.angle = cursor_visual_angle
-    wheel_background_widget.content.force_hover = any_hover
-    wheel_background_widget.content.text = ""
-    wheel_background_widget.style.mark.color[1] = any_hover and 255 or 0
+        for i = 1, #entries do
+            local entry = entries[i]
+            local widget = entry.widget
+            local is_hover = false
 
-    if hovered_entry then
-        wheel_background_widget.content.text = Localize(hovered_entry.option.display_name)
-    end
-end)
+            if entry.option and cursor_distance_from_center > 130 * scale then
+                local widget_angle = _screen_angle(0, 0, widget.offset[1], widget.offset[2])
+                local angle_diff = math.abs(_angle_distance(widget_angle, cursor_selection_angle))
+
+                if angle_diff <= entry_hover_degrees_half then
+                    is_hover = true
+                    any_hover = true
+                    hovered_entry = entry
+                end
+            end
+
+            widget.content.hotspot.force_hover = is_hover
+        end
+
+        local wheel_background_widget = self._widgets_by_name.wheel_background
+
+        wheel_background_widget.content.angle = cursor_visual_angle
+        wheel_background_widget.content.force_hover = any_hover
+        wheel_background_widget.content.text = ""
+        wheel_background_widget.style.mark.color[1] = any_hover and 255 or 0
+
+        if hovered_entry then
+            wheel_background_widget.content.text = Localize(hovered_entry.option.display_name)
+        end
+    end)
 
 mod:hook("HudElementSmartTagging", "_should_draw_wheel_gamepad", function(func, self, input_service)
     local look_delta = input_service:get("look_raw_controller") * INSTANT_WHEEL_THRESHOLD * 2
