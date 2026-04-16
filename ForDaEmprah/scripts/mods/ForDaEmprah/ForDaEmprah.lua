@@ -3,19 +3,48 @@ local HudElementSmartTaggingSettings = require("scripts/ui/hud/elements/smart_ta
 local InputDevice = require("scripts/managers/input/input_device")
 local VOQueryConstants = require("scripts/settings/dialogue/vo_query_constants")
 local Vo = require("scripts/utilities/vo")
-local definitions = require("scripts/mods/ForDaEmprah/ForDaEmprah_definitions")
 
 local mod = get_mod("ForDaEmprah")
 
 local ChannelTags = ChatManagerConstants.ChannelTag
 local HudElementSmartTagging_instance
 
-local CLOCK_SLOTS = definitions.CLOCK_SLOTS
+local ipairs = ipairs
+local pairs = pairs
+local type = type
+local math_abs = math.abs
+local math_angle = math.angle
+local math_cos = math.cos
+local math_distance_2d = math.distance_2d
+local math_max = math.max
+local math_min = math.min
+local math_rad = math.rad
+local math_sin = math.sin
+local math_smoothstep = math.smoothstep
+local string_find = string.find
+local string_format = string.format
+local string_match = string.match
+local table_sort = table.sort
+local vector3_distance_squared = Vector3.distance_squared
+local vector3_length = Vector3.length
+local vector3box_unbox = Vector3Box.unbox
+local wheel_setting_id = mod.wheel_setting_id
+local CLOCK_SLOTS = mod.clock_slots
 local CLOCK_WHEEL_SLOT_COUNT = #CLOCK_SLOTS
+local PI = math.pi
+local TWO_PI = PI * 2
+local HALF_PI = PI * 0.5
+local MOUSE_MIN_HOVER_ANGLE = math_rad(8)
+local MOUSE_HOVER_ANGLE_PADDING = math_rad(1)
+local HOVER_DISTANCE_THRESHOLD = 130
 local wheel_settings = {}
 
+local function _sort_teammates_by_distance(a, b)
+    return a.distance < b.distance
+end
+
 for i, clock_slot in ipairs(CLOCK_SLOTS) do
-    wheel_settings[i] = definitions.wheel_setting_id(clock_slot)
+    wheel_settings[i] = wheel_setting_id(clock_slot)
 end
 
 HudElementSmartTaggingSettings.wheel_slots = CLOCK_WHEEL_SLOT_COUNT
@@ -25,7 +54,7 @@ local function _item_tag(value, fallback)
         return fallback
     end
 
-    if string.match(value, "^pup_") or string.match(value, "^station_") then
+    if string_find(value, "pup_", 1, true) == 1 or string_find(value, "station_", 1, true) == 1 then
         return value
     end
 
@@ -115,7 +144,7 @@ local commands = {
         },
     },
     [3] = {
-        icon = "content/ui/materials/hud/interactions/icons/default",
+        icon = "content/ui/materials/icons/list_buttons/check",
         display_name = "option_yes",
         voice_event_data = {
             voice_tag_concept = VOQueryConstants.concepts.on_demand_com_wheel,
@@ -179,7 +208,7 @@ local commands = {
         },
     },
     [11] = {
-        icon = "content/ui/materials/hud/interactions/icons/default",
+        icon = "content/ui/materials/hud/interactions/icons/pocketable_default",
         display_name = "option_mine",
         voice_event_data = {
             voice_tag_concept = VOQueryConstants.concepts.on_demand_com_wheel,
@@ -332,7 +361,7 @@ local commands = {
         },
     },
     [28] = {
-        icon = "content/ui/materials/hud/interactions/icons/default",
+        icon = "content/ui/materials/hud/interactions/icons/speak",
         display_name = "option_sorry",
         -- Darktide does not expose a dedicated "sorry" bark in the current on-demand VO tables.
         use_apology_rule = true,
@@ -354,7 +383,7 @@ _setup_optional_chat_messages()
 local function _active_wheel_options()
     local options = {}
 
-    for i = 1, #wheel_settings do
+    for i = 1, CLOCK_WHEEL_SLOT_COUNT do
         local command_id = mod:get(wheel_settings[i])
 
         if command_id and command_id > 0 then
@@ -373,36 +402,22 @@ local function _active_wheel_options()
     return options
 end
 
-local function _visible_wheel_entries(entries)
-    local visible_entries = {}
-
-    for i = 1, #entries do
-        local entry = entries[i]
-
-        if entry and entry.option then
-            visible_entries[#visible_entries + 1] = entry
-        end
-    end
-
-    return visible_entries
-end
-
 local function _clock_angle(position, visible_count)
     if visible_count <= 0 then
-        return math.pi
+        return PI
     end
 
-    local radians_per_entry = math.pi * 2 / visible_count
+    local radians_per_entry = TWO_PI / visible_count
 
-    return math.pi - (position - 1) * radians_per_entry
+    return PI - (position - 1) * radians_per_entry
 end
 
 local function _screen_angle(x1, y1, x2, y2)
-    return (math.pi * 2 - math.angle(x1, y1, x2, y2) - math.pi * 0.5) % (math.pi * 2)
+    return (TWO_PI - math_angle(x1, y1, x2, y2) - HALF_PI) % TWO_PI
 end
 
 local function _angle_distance(a, b)
-    return (a - b + math.pi) % (math.pi * 2) - math.pi
+    return (a - b + PI) % TWO_PI - PI
 end
 
 local function _mouse_hover_angle(visible_count)
@@ -410,7 +425,7 @@ local function _mouse_hover_angle(visible_count)
         return 0
     end
 
-    return math.max(math.rad(8), (math.pi * 2 / visible_count) - math.rad(1))
+    return math_max(MOUSE_MIN_HOVER_ANGLE, (TWO_PI / visible_count) - MOUSE_HOVER_ANGLE_PADDING)
 end
 
 local function _gamepad_hover_angle(visible_count)
@@ -418,20 +433,18 @@ local function _gamepad_hover_angle(visible_count)
         return 0
     end
 
-    return math.min(math.pi * 2, (math.pi * 2 / visible_count) * 1.1)
+    return math_min(TWO_PI, (TWO_PI / visible_count) * 1.1)
 end
 
 local function _wheel_radius_bounds(visible_count)
-    local extra_radius = math.max(visible_count - 8, 0) * 12
+    local extra_radius = math_max(visible_count - 8, 0) * 12
 
     return HudElementSmartTaggingSettings.min_radius + extra_radius,
         HudElementSmartTaggingSettings.max_radius + extra_radius
 end
 
 
-local function _chat_channel(channel_tag)
-    local chat_manager = Managers.chat
-
+local function _chat_channel(chat_manager, channel_tag)
     if not chat_manager then
         return nil
     end
@@ -463,7 +476,7 @@ local function _send_chat_message(chat_message_data)
     end
 
     local chat_manager = Managers.chat
-    local channel_handle = _chat_channel(chat_message_data.channel)
+    local channel_handle = _chat_channel(chat_manager, chat_message_data.channel)
 
     if not chat_manager or not channel_handle then
         return
@@ -523,12 +536,14 @@ end
 local function _ordered_teammate_classes(player_unit)
     local player_unit_spawn_manager = Managers.state.player_unit_spawn
     local alive_players = player_unit_spawn_manager and player_unit_spawn_manager:alive_players()
+    local alive_lookup = ALIVE
 
-    if not player_unit or not alive_players or not ALIVE[player_unit] then
+    if not player_unit or not alive_players or not alive_lookup[player_unit] then
         return {}
     end
 
-    local player_position = POSITION_LOOKUP[player_unit]
+    local position_lookup = POSITION_LOOKUP
+    local player_position = position_lookup[player_unit]
 
     if not player_position then
         return {}
@@ -542,21 +557,19 @@ local function _ordered_teammate_classes(player_unit)
         local other_player = alive_players[i]
         local other_unit = other_player and other_player.player_unit
 
-        if other_unit and other_unit ~= player_unit and ALIVE[other_unit] then
-            local other_position = POSITION_LOOKUP[other_unit]
+        if other_unit and other_unit ~= player_unit and alive_lookup[other_unit] then
+            local other_position = position_lookup[other_unit]
 
             if other_position then
                 teammates[#teammates + 1] = {
                     class_name = _player_class(other_unit),
-                    distance = Vector3.distance_squared(player_position, other_position),
+                    distance = vector3_distance_squared(player_position, other_position),
                 }
             end
         end
     end
 
-    table.sort(teammates, function(a, b)
-        return a.distance < b.distance
-    end)
+    table_sort(teammates, _sort_teammates_by_distance)
 
     for i = 1, #teammates do
         _append_unique_class(ordered_classes, seen_classes, teammates[i].class_name)
@@ -572,17 +585,17 @@ local function _available_apology_target_classes(dialogue_extension, speaker_cla
         return {}
     end
 
-    local pattern = string.format("^response_for_friendly_fire_from_%s_to_(.+)$", speaker_class)
+    local pattern = string_format("^response_for_friendly_fire_from_%s_to_(.+)$", speaker_class)
     local target_classes = {}
     local seen_classes = {}
 
     for rule_name in pairs(voice_choices) do
-        local target_class = string.match(rule_name, pattern)
+        local target_class = string_match(rule_name, pattern)
 
         _append_unique_class(target_classes, seen_classes, target_class)
     end
 
-    table.sort(target_classes)
+    table_sort(target_classes)
 
     return target_classes
 end
@@ -608,8 +621,10 @@ local function _apology_rule_name(player_unit)
         _append_unique_class(target_classes, seen_classes, available_target_classes[i])
     end
 
+    local rule_name_prefix = "response_for_friendly_fire_from_" .. speaker_class .. "_to_"
+
     for i = 1, #target_classes do
-        local rule_name = string.format("response_for_friendly_fire_from_%s_to_%s", speaker_class, target_classes[i])
+        local rule_name = rule_name_prefix .. target_classes[i]
 
         if dialogue_extension:has_dialogue(rule_name) then
             return rule_name
@@ -642,7 +657,7 @@ local function _trigger_location_tag(command)
     local hit_position = raycast_data and raycast_data.static_hit_position
 
     if hit_position then
-        instance:_trigger_smart_tag(command.tag_type, nil, Vector3Box.unbox(hit_position))
+        instance:_trigger_smart_tag(command.tag_type, nil, vector3box_unbox(hit_position))
     end
 end
 
@@ -681,74 +696,87 @@ end)
 
 mod:hook("HudElementSmartTagging", "_update_widget_locations", function(func, self)
     local entries = self._entries
-    local visible_entries = _visible_wheel_entries(entries)
-    local visible_count = #visible_entries
+    local visible_count = 0
     local active_progress = self._wheel_active_progress
-    local anim_progress = math.smoothstep(active_progress, 0, 1)
-    local min_radius, max_radius = _wheel_radius_bounds(visible_count)
-    local radius = min_radius + anim_progress * (max_radius - min_radius)
+    local anim_progress = math_smoothstep(active_progress, 0, 1)
 
     for i = 1, #entries do
         local entry = entries[i]
 
-        if entry and not entry.option then
+        if entry and entry.option then
+            visible_count = visible_count + 1
+        elseif entry then
             local widget = entry.widget
             local offset = widget.offset
 
-            widget.content.angle = math.pi
+            widget.content.angle = PI
             widget.content.hotspot.force_hover = false
             offset[1] = 0
             offset[2] = 0
         end
     end
 
-    for i = 1, visible_count do
-        local entry = visible_entries[i]
-        local widget = entry.widget
-        local angle = _clock_angle(i, visible_count)
-        local offset = widget.offset
+    local min_radius, max_radius = _wheel_radius_bounds(visible_count)
+    local radius = min_radius + anim_progress * (max_radius - min_radius)
+    local visible_position = 0
 
-        widget.content.angle = angle
-        offset[1] = math.sin(angle) * radius
-        offset[2] = math.cos(angle) * radius
+    for i = 1, #entries do
+        local entry = entries[i]
+
+        if entry and entry.option then
+            visible_position = visible_position + 1
+
+            local widget = entry.widget
+            local angle = _clock_angle(visible_position, visible_count)
+            local offset = widget.offset
+
+            widget.content.angle = angle
+            offset[1] = math_sin(angle) * radius
+            offset[2] = math_cos(angle) * radius
+        end
     end
 end)
 
 mod:hook("HudElementSmartTagging", "_update_wheel_presentation",
     function(func, self, dt, t, ui_renderer, render_settings, input_service)
-        local screen_width, screen_height = RESOLUTION_LOOKUP.width, RESOLUTION_LOOKUP.height
+        local screen_width = RESOLUTION_LOOKUP.width
+        local screen_height = RESOLUTION_LOOKUP.height
+        local half_screen_height = screen_height * 0.5
+        local half_screen_width = screen_width * 0.5
         local scale = render_settings.scale
         local cursor = input_service and input_service:get("cursor")
 
         if input_service and InputDevice.gamepad_active then
             cursor = input_service:get("navigate_controller_right")
-            cursor[1] = screen_width * 0.5 + cursor[1] * screen_width * 0.5
-            cursor[2] = screen_height * 0.5 - cursor[2] * screen_height * 0.5
+            cursor[1] = half_screen_width + cursor[1] * half_screen_width
+            cursor[2] = half_screen_height - cursor[2] * half_screen_height
         end
 
         if not cursor then
             return
         end
 
-        local cursor_distance_from_center = math.distance_2d(screen_width * 0.5, screen_height * 0.5, cursor[1],
-            cursor[2])
-        local cursor_visual_angle = math.angle(screen_width * 0.5, screen_height * 0.5, cursor[1], cursor[2]) -
-            math.pi * 0.5
-        local cursor_selection_angle = _screen_angle(screen_width * 0.5, screen_height * 0.5, cursor[1], cursor[2])
+        local cursor_x = cursor[1]
+        local cursor_y = cursor[2]
+        local cursor_distance_from_center = math_distance_2d(half_screen_width, half_screen_height, cursor_x, cursor_y)
+        local raw_cursor_angle = math_angle(half_screen_width, half_screen_height, cursor_x, cursor_y)
+        local cursor_visual_angle = raw_cursor_angle - HALF_PI
+        local cursor_selection_angle = (TWO_PI - raw_cursor_angle - HALF_PI) % TWO_PI
         local visible_count = self._mod_active_wheel_option_count or 0
         local entry_hover_degrees_half = _mouse_hover_angle(visible_count) * 0.5
         local any_hover = false
         local hovered_entry
         local entries = self._entries
+        local hover_distance_threshold = HOVER_DISTANCE_THRESHOLD * scale
 
         for i = 1, #entries do
             local entry = entries[i]
             local widget = entry.widget
             local is_hover = false
 
-            if entry.option and cursor_distance_from_center > 130 * scale then
+            if entry.option and cursor_distance_from_center > hover_distance_threshold then
                 local widget_angle = _screen_angle(0, 0, widget.offset[1], widget.offset[2])
-                local angle_diff = math.abs(_angle_distance(widget_angle, cursor_selection_angle))
+                local angle_diff = math_abs(_angle_distance(widget_angle, cursor_selection_angle))
 
                 if angle_diff <= entry_hover_degrees_half then
                     is_hover = true
@@ -761,20 +789,22 @@ mod:hook("HudElementSmartTagging", "_update_wheel_presentation",
         end
 
         local wheel_background_widget = self._widgets_by_name.wheel_background
+        local wheel_background_content = wheel_background_widget.content
+        local wheel_background_mark_color = wheel_background_widget.style.mark.color
 
-        wheel_background_widget.content.angle = cursor_visual_angle
-        wheel_background_widget.content.force_hover = any_hover
-        wheel_background_widget.content.text = ""
-        wheel_background_widget.style.mark.color[1] = any_hover and 255 or 0
+        wheel_background_content.angle = cursor_visual_angle
+        wheel_background_content.force_hover = any_hover
+        wheel_background_content.text = ""
+        wheel_background_mark_color[1] = any_hover and 255 or 0
 
         if hovered_entry then
-            wheel_background_widget.content.text = Localize(hovered_entry.option.display_name)
+            wheel_background_content.text = mod:localize(hovered_entry.option.display_name)
         end
     end)
 
 mod:hook("HudElementSmartTagging", "_should_draw_wheel_gamepad", function(func, self, input_service)
     local look_delta = input_service:get("look_raw_controller") * INSTANT_WHEEL_THRESHOLD * 2
-    local is_dragging = Vector3.length(look_delta) > INSTANT_WHEEL_THRESHOLD
+    local is_dragging = vector3_length(look_delta) > INSTANT_WHEEL_THRESHOLD
     local wheel_context = self._com_wheel_context
 
     if not wheel_context.camera_still_on_tag then
@@ -790,8 +820,9 @@ mod:hook("HudElementSmartTagging", "_should_draw_wheel_gamepad", function(func, 
             local entry = entries[i]
 
             if entry.option then
-                local widget_angle = _screen_angle(0, 0, entry.widget.offset[1], entry.widget.offset[2])
-                local angle_diff = math.abs(_angle_distance(widget_angle, look_angle))
+                local widget = entry.widget
+                local widget_angle = _screen_angle(0, 0, widget.offset[1], widget.offset[2])
+                local angle_diff = math_abs(_angle_distance(widget_angle, look_angle))
 
                 if angle_diff < half_entry_hover_angle then
                     wheel_context.instant_drew = true
@@ -868,7 +899,7 @@ mod:hook_safe("HudElementSmartTagging", "destroy", function(self)
 end)
 
 mod.on_setting_changed = function(setting_id)
-    if string.find(setting_id, "plugin_wheel_", 1, true) then
+    if string_find(setting_id, "plugin_wheel_", 1, true) then
         mod.setting_dirty = true
     end
 end
