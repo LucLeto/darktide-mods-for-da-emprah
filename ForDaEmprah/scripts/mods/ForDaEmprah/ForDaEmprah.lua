@@ -113,9 +113,18 @@ local stock_chat_loc_keys_by_display_name = {
 local function _optional_chat_message_data(display_name)
     local stock_loc_key = stock_chat_loc_keys_by_display_name[display_name]
 
+    if not stock_loc_key then
+        return {
+            channel = ChannelTags.MISSION,
+            text = display_name,
+            localized = false,
+            localize_text = true,
+        }
+    end
+
     return {
         channel = ChannelTags.MISSION,
-        text = stock_loc_key or display_name,
+        text = stock_loc_key,
     }
 end
 
