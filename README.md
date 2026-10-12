@@ -8,6 +8,7 @@
 - Extends the communication wheel to **12 slots**.
 - Lets you assign each slot freely, so you can build your own layout instead of being locked to the vanilla arrangement.
 - Keeps the most common stock calls in familiar positions by default, while opening the rest of the wheel for additional commands.
+- Scales with the number of filled slots: each background slice is resized to cover exactly one entry, and with more than 8 entries the slices, centre circle and direction arrow grow together to make room, while icons keep their vanilla size.
 
 ### Extra callouts and item call-ins
 The mod adds support for a wider set of communication options, including:
