@@ -25,6 +25,7 @@ local string_find = string.find
 local string_format = string.format
 local string_match = string.match
 local table_sort = table.sort
+local unit_world_position = Unit.world_position
 local vector3_distance_squared = Vector3.distance_squared
 local vector3_length = Vector3.length
 local vector3box_unbox = Vector3Box.unbox
@@ -542,13 +543,7 @@ local function _ordered_teammate_classes(player_unit)
         return {}
     end
 
-    local position_lookup = POSITION_LOOKUP
-    local player_position = position_lookup[player_unit]
-
-    if not player_position then
-        return {}
-    end
-
+    local player_position = unit_world_position(player_unit, 1)
     local teammates = {}
     local ordered_classes = {}
     local seen_classes = {}
@@ -558,14 +553,10 @@ local function _ordered_teammate_classes(player_unit)
         local other_unit = other_player and other_player.player_unit
 
         if other_unit and other_unit ~= player_unit and alive_lookup[other_unit] then
-            local other_position = position_lookup[other_unit]
-
-            if other_position then
-                teammates[#teammates + 1] = {
-                    class_name = _player_class(other_unit),
-                    distance = vector3_distance_squared(player_position, other_position),
-                }
-            end
+            teammates[#teammates + 1] = {
+                class_name = _player_class(other_unit),
+                distance = vector3_distance_squared(player_position, unit_world_position(other_unit, 1)),
+            }
         end
     end
 
