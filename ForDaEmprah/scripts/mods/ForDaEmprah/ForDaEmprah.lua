@@ -1,4 +1,5 @@
 local ChatManagerConstants = require("scripts/foundation/managers/chat/chat_manager_constants")
+local HudElementSmartTaggingDefinitions = require("scripts/ui/hud/elements/smart_tagging/hud_element_smart_tagging_definitions")
 local HudElementSmartTaggingSettings = require("scripts/ui/hud/elements/smart_tagging/hud_element_smart_tagging_settings")
 local InputDevice = require("scripts/managers/input/input_device")
 local VOQueryConstants = require("scripts/settings/dialogue/vo_query_constants")
@@ -22,6 +23,7 @@ local math_min = math.min
 local math_rad = math.rad
 local math_sin = math.sin
 local math_smoothstep = math.smoothstep
+local math_tan = math.tan
 local string_find = string.find
 local string_format = string.format
 local string_match = string.match
@@ -42,6 +44,15 @@ local MOUSE_HOVER_ANGLE_PADDING = math_rad(1)
 local HOVER_DISTANCE_THRESHOLD = 130
 -- Mirrors the file-local constant in hud_element_smart_tagging.lua, which is not reachable from here.
 local INSTANT_WHEEL_THRESHOLD = 8
+local VANILLA_MAX_RADIUS = HudElementSmartTaggingSettings.max_radius
+-- The slice_eighth textures each cover 1/8 of the circle, whatever the configured slot count.
+local SLICE_TEXTURE_HALF_ANGLE_TAN = math_tan(PI / 8)
+-- Below this many slots, widened slices distort too much, so they stop growing.
+local MIN_SLICE_SLOT_COUNT = 4
+local BACKGROUND_BASE_SIZE = HudElementSmartTaggingDefinitions.scenegraph_definition.background.size
+local MARK_BASE_STYLE = HudElementSmartTaggingDefinitions.widget_definitions.wheel_background.style.mark
+local slice_style_ids = {}
+local slice_base_sizes = {}
 local wheel_settings = {}
 
 local function _sort_teammates_by_distance(a, b)
@@ -471,6 +482,91 @@ local function _wheel_radius_bounds(visible_count)
         HudElementSmartTaggingSettings.max_radius + extra_radius
 end
 
+local function _collect_slice_styles()
+    local entry_definition = HudElementSmartTaggingDefinitions.entry_widget_definition
+    local definition_content = entry_definition.content
+    local definition_style = entry_definition.style
+    local passes = entry_definition.passes
+
+    for i = 1, #passes do
+        local pass = passes[i]
+        local style_id = pass.style_id
+        local value = pass.value_id and definition_content[pass.value_id]
+
+        if style_id and type(value) == "string" and string_find(value, "/communication_wheel/slice_", 1, true) then
+            local base_style = definition_style[style_id]
+            local base_size = base_style and base_style.size
+
+            if base_size then
+                slice_style_ids[#slice_style_ids + 1] = style_id
+                slice_base_sizes[#slice_base_sizes + 1] = { base_size[1], base_size[2] }
+            end
+        end
+    end
+end
+
+_collect_slice_styles()
+
+local function _wheel_scale(visible_count)
+    local _, max_radius = _wheel_radius_bounds(visible_count)
+
+    return max_radius / VANILLA_MAX_RADIUS
+end
+
+local function _slice_width_scale(visible_count)
+    if visible_count <= 0 then
+        return 1
+    end
+
+    -- Scaling a wedge horizontally keeps its edges pointing at the wheel centre and scales tan(half angle) linearly.
+    return math_tan(PI / math_max(visible_count, MIN_SLICE_SLOT_COUNT)) / SLICE_TEXTURE_HALF_ANGLE_TAN
+end
+
+local function _apply_background_scale(instance, scale)
+    instance:_set_scenegraph_size("background", BACKGROUND_BASE_SIZE[1] * scale, BACKGROUND_BASE_SIZE[2] * scale)
+
+    local mark_style = instance._widgets_by_name.wheel_background.style.mark
+    local base_size = MARK_BASE_STYLE.size
+    local base_pivot = MARK_BASE_STYLE.pivot
+    local base_offset = MARK_BASE_STYLE.offset
+
+    mark_style.size[1] = base_size[1] * scale
+    mark_style.size[2] = base_size[2] * scale
+    mark_style.pivot[1] = base_pivot[1] * scale
+    mark_style.pivot[2] = base_pivot[2] * scale
+    mark_style.offset[1] = base_offset[1] * scale
+    mark_style.offset[2] = base_offset[2] * scale
+end
+
+local function _apply_wheel_scale(instance, visible_count)
+    local scale = _wheel_scale(visible_count)
+    local slice_width_scale = scale * _slice_width_scale(visible_count)
+    local entries = instance._entries
+
+    for i = 1, #entries do
+        local widget_style = entries[i].widget.style
+
+        for j = 1, #slice_style_ids do
+            local style = widget_style[slice_style_ids[j]]
+            local base_size = slice_base_sizes[j]
+            local size = style.size
+            local pivot = style.pivot
+            local width = base_size[1] * slice_width_scale
+            local height = base_size[2] * scale
+
+            size[1] = width
+            size[2] = height
+            -- rotated_texture caches its pivot from the first drawn size, so keep it centred on the new size.
+            pivot[1] = width * 0.5
+            pivot[2] = height * 0.5
+        end
+    end
+
+    _apply_background_scale(instance, scale)
+
+    instance._mod_wheel_scale = scale
+end
+
 
 local function _chat_channel(chat_manager, channel_tag)
     if not chat_manager then
@@ -726,6 +822,7 @@ mod:hook("HudElementSmartTagging", "_populate_wheel", function(func, self, optio
     self._mod_active_wheel_option_count = #active_options
 
     func(self, active_options)
+    _apply_wheel_scale(self, #active_options)
 end)
 
 mod:hook("HudElementSmartTagging", "_update_widget_locations", function(func, self)
@@ -801,7 +898,7 @@ mod:hook("HudElementSmartTagging", "_update_wheel_presentation",
         local any_hover = false
         local hovered_entry
         local entries = self._entries
-        local hover_distance_threshold = HOVER_DISTANCE_THRESHOLD * scale
+        local hover_distance_threshold = HOVER_DISTANCE_THRESHOLD * scale * (self._mod_wheel_scale or 1)
 
         for i = 1, #entries do
             local entry = entries[i]
@@ -954,6 +1051,7 @@ mod.on_disabled = function()
     if instance and vanilla_wheel_options then
         instance:_setup_entries(VANILLA_WHEEL_SLOT_COUNT)
         instance:_populate_wheel(vanilla_wheel_options)
+        _apply_background_scale(instance, 1)
     end
 
     -- The destroy hook is inactive while disabled, so drop the reference; update re-acquires it on enable.
