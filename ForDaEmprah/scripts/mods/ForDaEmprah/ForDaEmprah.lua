@@ -38,6 +38,8 @@ local HALF_PI = PI * 0.5
 local MOUSE_MIN_HOVER_ANGLE = math_rad(8)
 local MOUSE_HOVER_ANGLE_PADDING = math_rad(1)
 local HOVER_DISTANCE_THRESHOLD = 130
+-- Mirrors the file-local constant in hud_element_smart_tagging.lua, which is not reachable from here.
+local INSTANT_WHEEL_THRESHOLD = 8
 local wheel_settings = {}
 
 local function _sort_teammates_by_distance(a, b)
@@ -686,6 +688,17 @@ local function _execute_command(command, player_unit)
     end
 end
 
+local function _uses_custom_execution(command)
+    if command.use_custom_execution then
+        return true
+    end
+
+    local chat_message_data = command.chat_message_data
+
+    -- Vanilla wheel execution always sends chat as a stock loc key, so mod-localized chat must go through _execute_command.
+    return chat_message_data ~= nil and chat_message_data.localized == false
+end
+
 mod:hook("HudElementSmartTagging", "_populate_wheel", function(func, self, options)
     local active_options = _active_wheel_options()
 
@@ -841,7 +854,7 @@ mod:hook("HudElementSmartTagging", "_on_com_wheel_stop_callback",
         local wheel_hovered_entry = self._wheel_active and self:_is_wheel_entry_hovered(t)
         local command = wheel_hovered_entry and wheel_hovered_entry.option
 
-        if command and command.use_custom_execution then
+        if command and _uses_custom_execution(command) then
             local parent = self._parent
             local player_unit = parent and parent:player_unit() or nil
             local wheel_context = self._com_wheel_context
@@ -899,7 +912,7 @@ mod:hook_safe("HudElementSmartTagging", "destroy", function(self)
 end)
 
 mod.on_setting_changed = function(setting_id)
-    if string_find(setting_id, "plugin_wheel_", 1, true) then
+    if string_find(setting_id, "plugin_wheel_", 1, true) or string_find(setting_id, "chat_", 1, true) == 1 then
         mod.setting_dirty = true
     end
 end
