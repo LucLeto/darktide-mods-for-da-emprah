@@ -8,6 +8,7 @@ local mod = get_mod("ForDaEmprah")
 
 local ChannelTags = ChatManagerConstants.ChannelTag
 local HudElementSmartTagging_instance
+local vanilla_wheel_options
 
 local ipairs = ipairs
 local pairs = pairs
@@ -32,6 +33,7 @@ local vector3box_unbox = Vector3Box.unbox
 local wheel_setting_id = mod.wheel_setting_id
 local CLOCK_SLOTS = mod.clock_slots
 local CLOCK_WHEEL_SLOT_COUNT = #CLOCK_SLOTS
+local VANILLA_WHEEL_SLOT_COUNT = HudElementSmartTaggingSettings.wheel_slots
 local PI = math.pi
 local TWO_PI = PI * 2
 local HALF_PI = PI * 0.5
@@ -414,6 +416,20 @@ local function _active_wheel_options()
     return options
 end
 
+local function _wheel_entry_options(entries)
+    local options = {}
+
+    for i = 1, #entries do
+        local option = entries[i].option
+
+        if option then
+            options[#options + 1] = option
+        end
+    end
+
+    return options
+end
+
 local function _clock_angle(position, visible_count)
     if visible_count <= 0 then
         return PI
@@ -700,6 +716,11 @@ local function _uses_custom_execution(command)
 end
 
 mod:hook("HudElementSmartTagging", "_populate_wheel", function(func, self, options)
+    -- Only vanilla init passes options; keep them so on_disabled can restore the stock wheel.
+    if options then
+        vanilla_wheel_options = options
+    end
+
     local active_options = _active_wheel_options()
 
     self._mod_active_wheel_option_count = #active_options
@@ -895,6 +916,9 @@ mod:hook_safe("HudElementSmartTagging", "update", function(self)
     end
 
     if #self._entries ~= CLOCK_WHEEL_SLOT_COUNT then
+        -- A HUD created while the mod was disabled still holds the vanilla options here.
+        vanilla_wheel_options = vanilla_wheel_options or _wheel_entry_options(self._entries)
+
         self:_setup_entries(CLOCK_WHEEL_SLOT_COUNT)
         self:_populate_wheel()
     end
@@ -915,6 +939,25 @@ mod.on_setting_changed = function(setting_id)
     if string_find(setting_id, "plugin_wheel_", 1, true) or string_find(setting_id, "chat_", 1, true) == 1 then
         mod.setting_dirty = true
     end
+end
+
+mod.on_enabled = function()
+    HudElementSmartTaggingSettings.wheel_slots = CLOCK_WHEEL_SLOT_COUNT
+end
+
+mod.on_disabled = function()
+    HudElementSmartTaggingSettings.wheel_slots = VANILLA_WHEEL_SLOT_COUNT
+
+    local instance = HudElementSmartTagging_instance
+
+    -- DMF deactivates all hooks before on_disabled, so these calls run the vanilla implementations.
+    if instance and vanilla_wheel_options then
+        instance:_setup_entries(VANILLA_WHEEL_SLOT_COUNT)
+        instance:_populate_wheel(vanilla_wheel_options)
+    end
+
+    -- The destroy hook is inactive while disabled, so drop the reference; update re-acquires it on enable.
+    HudElementSmartTagging_instance = nil
 end
 
 local function init_keybind_functions()
