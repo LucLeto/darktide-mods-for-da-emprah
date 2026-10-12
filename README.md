@@ -60,6 +60,7 @@ The mod adds support for a wider set of communication options, including:
 ### Custom apology behavior
 - The **Sorry** command uses a custom execution path.
 - Instead of a generic line, it attempts to play a fitting apology response based on the player class and available teammate dialogue rules.
+- The apology voice line is played **locally only**: you hear it, but your teammates do not. If chat output is enabled for **Sorry**, teammates still see the chat message.
 
 ### Localization
 - Includes built-in localization support for multiple game languages.
