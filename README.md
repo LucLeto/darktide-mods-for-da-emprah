@@ -108,3 +108,23 @@ The policy guidance this repository follows is:
 - Vanilla wheel commands are preserved and can still be placed on the wheel or bound directly.
 - The wheel automatically adapts its spacing to the number of active entries.
 - Some commands are focused on voice and chat communication, while others also create smart tags depending on the command type.
+
+## Running the tests
+
+The `tests/` folder holds an offline test suite that loads the mod outside the game, with the Darktide and DMF APIs it uses stubbed out. It needs [LuaJIT](https://luajit.org/) and is not part of the mod folder you install.
+
+From the repository root:
+
+```bash
+luajit tests/run_tests.lua
+```
+
+To also check the wheel scaling against the game's real widget definitions, pass the path to a checkout of the decompiled Darktide source, or set `DARKTIDE_SOURCE`:
+
+```bash
+luajit tests/run_tests.lua path/to/Darktide-Source-Code
+```
+
+Without it, that test is reported as skipped. The runner exits with a non-zero code when any test fails.
+
+The tests cover the mod's logic (wheel layout and scaling, command routing, chat messages, keybinds, enabling and disabling), not how it looks or sounds in the game, so changes still need a check in-game.
