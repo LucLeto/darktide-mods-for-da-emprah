@@ -7,7 +7,8 @@
 -- run against the game's real smart tagging widget definitions; without one, those tests are skipped.
 -- Exits with 1 when any test fails.
 
-local real_require = require
+-- Loaded before any test environment replaces the global require with its stubs.
+local jit_bc = require("jit.bc")
 local tests_dir = arg[0]:match("^(.*)[/\\][^/\\]+$") or "."
 local mod_dir = tests_dir .. "/../ForDaEmprah/scripts/mods/ForDaEmprah"
 local darktide_source = arg[1] or os.getenv("DARKTIDE_SOURCE")
@@ -39,7 +40,7 @@ local h = {
     Env = Env,
     mod_dir = mod_dir,
     darktide_source = darktide_source,
-    real_require = real_require,
+    jit_bc = jit_bc,
 }
 
 function h.check(condition, message)
@@ -75,6 +76,7 @@ end
 
 local test_files = {
     "test_static.lua",
+    "test_settings_menu.lua",
     "test_wheel_commands.lua",
     "test_mod_toggle.lua",
     "test_wheel_scale.lua",

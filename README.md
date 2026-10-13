@@ -45,14 +45,15 @@ The mod adds support for a wider set of communication options, including:
   - Diamantine
 
 ### Direct keybind support
-- Every supported command can be bound to its own key.
-- Keybinds trigger the same communication behavior as the wheel entry, including voice playback, smart tags, and chat output where applicable.
+- Every supported command can be bound to its own key, even when it is not on the wheel.
+- Keybinds trigger the same communication behavior as the wheel entry, including voice playback, smart tags, and the command's chat message.
 - Input is ignored while menus or UI input are active, so it does not fire accidentally while navigating interfaces.
 
-### Optional chat messages for extra commands
-- Extra non-vanilla callouts can also post to **mission chat**.
-- Chat output can be toggled **per command**, so you can decide exactly which extra wheel actions should also write a message.
-- Where possible, the mod uses existing Darktide localization keys so the chat line resolves correctly for other players as well.
+### Chat messages
+- Commands can also post to **mission chat**. The chat toggle is set **per command** and applies both to the wheel and to the command's keybind.
+- Turn on **Customize Text** to send your own text instead, up to 200 characters. The field starts out with the default message in your language, ready to edit; leave it empty to send the default.
+- Where possible, the default message uses existing Darktide localization keys, so it resolves correctly for other players in their own language. A custom message is sent exactly as written.
+- Vanilla commands with a chat line (**Need Ammo**, **Need Healing**, **Thanks**) keep posting it by default, and can also be switched off or given a custom message.
 
 ### Smart tagging support
 - Location-based commands such as **Look There**, **Go There**, and **Enemy** still trigger the appropriate smart-tag behavior.
@@ -75,10 +76,9 @@ The mod adds support for a wider set of communication options, including:
 
 ## Configuration
 
-After enabling the mod, you can configure:
-- the command assigned to each of the 12 wheel slots
-- which extra commands should also post to mission chat
-- individual keybinds for each available command
+After enabling the mod, the settings menu has two tabs:
+- **Wheel Slots**: the command assigned to each of the 12 wheel slots
+- **Commands**: one toggle per command. Switching it on shows its keybind and, for commands with a chat line, whether it posts to mission chat and, under **Customize Text**, your own message. While a command is off, those settings don't apply and the command keeps its default behaviour on the wheel.
 
 ## Important Disclaimer
 

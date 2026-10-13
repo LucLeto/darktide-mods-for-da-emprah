@@ -6,6 +6,7 @@ local LANGUAGES = { "en", "fr", "de", "it", "es", "pl", "pt-br", "ru", "ja", "ko
 -- Engine/game globals the mod may read. Anything else is most likely a vanilla file-local (see INSTANT_WHEEL_THRESHOLD).
 local ALLOWED_GLOBALS = {
     ALIVE = true,
+    Localize = true,
     Managers = true,
     RESOLUTION_LOOKUP = true,
     ScriptUnit = true,
@@ -32,7 +33,7 @@ local function read_file(path)
 end
 
 local function global_accesses(path)
-    local bc = h.real_require("jit.bc")
+    local bc = h.jit_bc
     local chunks = {}
     local sink = {
         write = function(_, ...)
@@ -74,17 +75,31 @@ return {
         name = "localization has every key in all 12 languages and no unused keys",
         run = function()
             local localization = dofile(mod_dir .. "/ForDaEmprah_localization.lua")
-            local data_source = read_file(mod_dir .. "/ForDaEmprah_data.lua")
             local main_source = read_file(mod_dir .. "/ForDaEmprah.lua")
-            local needed = { mod_title = true, mod_description = true, plugin_chat_messages = true, plugin_keybinds = true }
+            local needed = { mod_title = true, mod_description = true }
 
-            for clock_slot in data_source:match("CLOCK_SLOTS = (%b{})"):gmatch("\"(%d+)\"") do
-                needed["plugin_wheel_" .. clock_slot] = true
+            -- DMF localizes each widget's title (or its setting_id), tooltip, placeholder and dropdown option texts.
+            local function collect(widgets)
+                for _, widget in ipairs(widgets) do
+                    needed[widget.title or widget.setting_id] = true
+
+                    if widget.tooltip then
+                        needed[widget.tooltip] = true
+                    end
+
+                    if widget.placeholder_text then
+                        needed[widget.placeholder_text] = true
+                    end
+
+                    for _, option in ipairs(widget.options or {}) do
+                        needed[option.text] = true
+                    end
+
+                    collect(widget.sub_widgets or {})
+                end
             end
 
-            for key in data_source:gmatch("text%s*=%s*\"([%w_]+)\"") do
-                needed[key] = true
-            end
+            collect(h.Env.new().data.options.widgets)
 
             for key in main_source:gmatch("display_name%s*=%s*\"([%w_]+)\"") do
                 needed[key] = true

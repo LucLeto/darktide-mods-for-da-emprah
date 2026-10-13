@@ -65,15 +65,15 @@ local DROPDOWN_OPTIONS = {
     { text = "option_medipack",          value = COMMAND.MEDIPACK },
     { text = "option_medipack_down",     value = COMMAND.MEDIPACK_DOWN },
     { text = "option_mine",              value = COMMAND.MINE },
-    { text = "option_need_ammo",         value = COMMAND.NEED_AMMO,        vanilla = true },
-    { text = "option_need_healing",      value = COMMAND.NEED_HEALING,     vanilla = true },
+    { text = "option_need_ammo",         value = COMMAND.NEED_AMMO,        vanilla = true, stock_chat = true },
+    { text = "option_need_healing",      value = COMMAND.NEED_HEALING,     vanilla = true, stock_chat = true },
     { text = "option_no",                value = COMMAND.NO },
     { text = "option_plasteel",          value = COMMAND.PLASTEEL },
     { text = "option_power_cell",        value = COMMAND.POWER_CELL },
     { text = "option_relic",             value = COMMAND.RELIC },
     { text = "option_scripture",         value = COMMAND.SCRIPTURE },
     { text = "option_sorry",             value = COMMAND.SORRY },
-    { text = "option_thanks",            value = COMMAND.THANKS,           vanilla = true },
+    { text = "option_thanks",            value = COMMAND.THANKS,           vanilla = true, stock_chat = true },
     { text = "option_uncharged_medicae", value = COMMAND.UNCHARGED_MEDICAE },
     { text = "option_vacuum_capsule",    value = COMMAND.VACUUM_CAPSULE },
     { text = "option_yes",               value = COMMAND.YES },
@@ -94,12 +94,37 @@ local DEFAULT_WHEEL_VALUES = {
     plugin_wheel_11 = COMMAND.LOOK_THERE
 }
 
+-- Same limit as the game's chat input box.
+local CHAT_MESSAGE_MAX_LENGTH = 200
+
 local function wheel_setting_id(clock_slot)
     return "plugin_wheel_" .. clock_slot
 end
 
+-- Per-command settings are keyed by the command's display name, e.g. "option_sorry". The keybind keeps
+-- the bare name and the chat toggle its "chat_" prefix, the ids earlier builds saved them under.
+local function command_enabled_setting_id(display_name)
+    return display_name .. "_enabled"
+end
+
+local function command_chat_setting_id(display_name)
+    return "chat_" .. display_name
+end
+
+local function command_customize_setting_id(display_name)
+    return display_name .. "_customize"
+end
+
+local function command_message_setting_id(display_name)
+    return display_name .. "_message"
+end
+
 mod.clock_slots = CLOCK_SLOTS
 mod.wheel_setting_id = wheel_setting_id
+mod.command_enabled_setting_id = command_enabled_setting_id
+mod.command_chat_setting_id = command_chat_setting_id
+mod.command_customize_setting_id = command_customize_setting_id
+mod.command_message_setting_id = command_message_setting_id
 
 local pairs = pairs
 local ipairs = ipairs
@@ -142,36 +167,73 @@ local function get_wheel_widgets()
     return widgets
 end
 
-local function get_chat_toggle_widgets()
-    local widgets = {}
-
-    for _, option in ipairs(DROPDOWN_OPTIONS) do
-        if option.value > COMMAND.NONE and option.vanilla ~= true then
-            widgets[#widgets + 1] = {
-                setting_id = "chat_" .. option.text,
-                title = option.text,
+-- Vanilla commands with a stock chat line keep posting it unless it is switched off. The message field only
+-- applies while "Customize Text" is on; the script fills it with the default message, which needs the game's
+-- localization, so its default here stays empty.
+local function get_command_chat_widget(option)
+    return {
+        setting_id = command_chat_setting_id(option.text),
+        type = "checkbox",
+        title = "command_chat",
+        tooltip = "command_chat_tooltip",
+        default_value = option.stock_chat == true,
+        sub_widgets = {
+            {
+                setting_id = command_customize_setting_id(option.text),
                 type = "checkbox",
+                title = "command_customize",
+                tooltip = "command_customize_tooltip",
                 default_value = false,
-            }
-        end
-    end
-
-    return widgets
+                sub_widgets = {
+                    {
+                        setting_id = command_message_setting_id(option.text),
+                        type = "text",
+                        title = "command_message",
+                        tooltip = "command_message_tooltip",
+                        placeholder_text = "command_message_placeholder",
+                        max_length = CHAT_MESSAGE_MAX_LENGTH,
+                        default_value = "",
+                    },
+                },
+            },
+        },
+    }
 end
 
-local function get_keybind_widgets()
+-- One toggle per command; DMF only shows its settings while it is on, and they only apply while it is on.
+local function get_command_widget(option)
+    local sub_widgets = {
+        {
+            setting_id = option.text,
+            type = "keybind",
+            title = "command_keybind",
+            keybind_trigger = "pressed",
+            keybind_type = "function_call",
+            function_name = "keybind_" .. option.value,
+            default_value = {},
+        },
+    }
+
+    if option.vanilla ~= true or option.stock_chat then
+        sub_widgets[#sub_widgets + 1] = get_command_chat_widget(option)
+    end
+
+    return {
+        setting_id = command_enabled_setting_id(option.text),
+        type = "checkbox",
+        title = option.text,
+        tooltip = "command_toggle_tooltip",
+        default_value = false,
+        sub_widgets = sub_widgets,
+    }
+end
+
+local function get_command_widgets()
     local widgets = {}
 
     for _, option in ipairs(DROPDOWN_OPTIONS) do
         if option.value > COMMAND.NONE then
-            widgets[#widgets + 1] = {
-                setting_id = option.text,
-                type = "keybind",
-                keybind_trigger = "pressed",
-                keybind_type = "function_call",
-                function_name = "keybind_" .. option.value,
-                default_value = {},
-            }
+            widgets[#widgets + 1] = get_command_widget(option)
         end
     end
 
@@ -179,21 +241,18 @@ local function get_keybind_widgets()
 end
 
 local function get_widgets()
-    local widgets = get_wheel_widgets()
-
-    widgets[#widgets + 1] = {
-        setting_id = "plugin_chat_messages",
-        type = "group",
-        sub_widgets = get_chat_toggle_widgets(),
+    return {
+        {
+            setting_id = "plugin_wheel_slots",
+            type = "group",
+            sub_widgets = get_wheel_widgets(),
+        },
+        {
+            setting_id = "plugin_commands",
+            type = "group",
+            sub_widgets = get_command_widgets(),
+        },
     }
-
-    widgets[#widgets + 1] = {
-        setting_id = "plugin_keybinds",
-        type = "group",
-        sub_widgets = get_keybind_widgets(),
-    }
-
-    return widgets
 end
 
 return {

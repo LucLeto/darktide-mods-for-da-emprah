@@ -33,6 +33,10 @@ local vector3_distance_squared = Vector3.distance_squared
 local vector3_length = Vector3.length
 local vector3box_unbox = Vector3Box.unbox
 local wheel_setting_id = mod.wheel_setting_id
+local command_enabled_setting_id = mod.command_enabled_setting_id
+local command_chat_setting_id = mod.command_chat_setting_id
+local command_customize_setting_id = mod.command_customize_setting_id
+local command_message_setting_id = mod.command_message_setting_id
 local CLOCK_SLOTS = mod.clock_slots
 local CLOCK_WHEEL_SLOT_COUNT = #CLOCK_SLOTS
 local VANILLA_WHEEL_SLOT_COUNT = HudElementSmartTaggingSettings.wheel_slots
@@ -101,10 +105,6 @@ local vanilla_wheel_command_ids = {
     [27] = true,
 }
 
-local function _chat_setting_id(display_name)
-    return display_name and "chat_" .. display_name or nil
-end
-
 -- Prefer stock loc keys where possible so players without the mod still resolve the chat line correctly.
 local stock_chat_loc_keys_by_display_name = {
     option_ammo = "loc_pickup_consumable_small_clip_01",
@@ -142,14 +142,6 @@ local function _optional_chat_message_data(display_name)
         text = stock_loc_key,
     }
 end
-
-local function _chat_enabled_for_command(command)
-    local chat_message_data = command and command.chat_message_data
-    local setting_id = chat_message_data and chat_message_data.setting_id
-
-    return not setting_id or mod:get(setting_id)
-end
-
 
 local commands = {
     [1] = {
@@ -398,12 +390,120 @@ local function _setup_optional_chat_messages()
     for command_id, command in pairs(commands) do
         if not vanilla_wheel_command_ids[command_id] and command.display_name then
             command.chat_message_data = _optional_chat_message_data(command.display_name)
-            command.chat_message_data.setting_id = _chat_setting_id(command.display_name)
+            command.chat_message_data.optional = true
         end
     end
 end
 
 _setup_optional_chat_messages()
+
+-- Setting ids of each command's toggle, chat toggle and custom message (see ForDaEmprah_data.lua).
+local command_settings = {}
+
+for command_id, command in pairs(commands) do
+    local display_name = command.display_name
+
+    command_settings[command_id] = {
+        enabled = command_enabled_setting_id(display_name),
+        chat = command_chat_setting_id(display_name),
+        customize = command_customize_setting_id(display_name),
+        message = command_message_setting_id(display_name),
+    }
+end
+
+local function _custom_chat_message(setting_ids)
+    if not mod:get(setting_ids.customize) then
+        return nil
+    end
+
+    local message = mod:get(setting_ids.message)
+
+    if type(message) ~= "string" then
+        return nil
+    end
+
+    message = string_match(message, "^%s*(.-)%s*$")
+
+    return message ~= "" and message or nil
+end
+
+-- The default message as the local player reads it. Stock loc keys need the game's localization, which
+-- returns "" until its strings are loaded.
+local function _default_chat_text(chat_message_data)
+    if chat_message_data.localized == false then
+        return mod:localize(chat_message_data.text)
+    end
+
+    return type(Localize) == "function" and Localize(chat_message_data.text) or ""
+end
+
+-- Fills the message fields with their default message, so customizing starts from it. Only empty fields of
+-- commands that aren't customized are filled, so text the player wrote is never replaced. Returns false while
+-- the game's localization isn't loaded yet.
+local function _fill_default_messages()
+    for command_id, command in pairs(commands) do
+        local chat_message_data = command.chat_message_data
+        local setting_ids = command_settings[command_id]
+
+        if chat_message_data and not mod:get(setting_ids.customize) then
+            local message = mod:get(setting_ids.message)
+
+            if message == nil or message == "" then
+                local default_text = _default_chat_text(chat_message_data)
+
+                if default_text == "" then
+                    return false
+                end
+
+                mod:set(setting_ids.message, default_text)
+            end
+        end
+    end
+
+    return true
+end
+
+local default_messages_filled = _fill_default_messages()
+
+-- The command as the wheel and its keybind use it. While its toggle is off it keeps its defaults: no optional
+-- chat message, and vanilla commands keep their stock one. While on, its chat toggle and custom message apply.
+local function _configured_command(command_id)
+    local command = commands[command_id]
+
+    if not command then
+        return nil
+    end
+
+    local configured_command = _clone_command(command)
+    local chat_message_data = command.chat_message_data
+
+    if not chat_message_data then
+        return configured_command
+    end
+
+    local setting_ids = command_settings[command_id]
+
+    if not mod:get(setting_ids.enabled) then
+        if chat_message_data.optional then
+            configured_command.chat_message_data = nil
+        end
+    elseif not mod:get(setting_ids.chat) then
+        configured_command.chat_message_data = nil
+    else
+        local custom_message = _custom_chat_message(setting_ids)
+
+        -- Sent as typed; localized = false also routes wheel picks through _execute_command.
+        if custom_message then
+            configured_command.chat_message_data = {
+                channel = chat_message_data.channel,
+                text = custom_message,
+                localized = false,
+            }
+        end
+    end
+
+    return configured_command
+end
 
 local function _active_wheel_options()
     local options = {}
@@ -412,13 +512,9 @@ local function _active_wheel_options()
         local command_id = mod:get(wheel_settings[i])
 
         if command_id and command_id > 0 then
-            local command = _clone_command(commands[command_id])
+            local command = _configured_command(command_id)
 
             if command then
-                if not _chat_enabled_for_command(command) then
-                    command.chat_message_data = nil
-                end
-
                 options[#options + 1] = command
             end
         end
@@ -590,12 +686,6 @@ end
 
 local function _send_chat_message(chat_message_data)
     if not chat_message_data then
-        return
-    end
-
-    local setting_id = chat_message_data.setting_id
-
-    if setting_id and not mod:get(setting_id) then
         return
     end
 
@@ -995,13 +1085,20 @@ mod:hook("HudElementSmartTagging", "_on_com_wheel_stop_callback",
     end)
 
 local function setup_keybind_functions()
-    for key, command in ipairs(commands) do
+    for key in ipairs(commands) do
+        local enabled_setting_id = command_settings[key].enabled
+
         mod["keybind_" .. key] = function()
             if Managers.input:cursor_active() or Managers.ui:using_input() then
                 return
             end
 
-            _execute_command(command)
+            -- A command's keybind only applies while its toggle is on.
+            if not mod:get(enabled_setting_id) then
+                return
+            end
+
+            _execute_command(_configured_command(key))
         end
     end
 end
@@ -1032,9 +1129,16 @@ mod:hook_safe("HudElementSmartTagging", "destroy", function(self)
     end
 end)
 
-mod.on_setting_changed = function(setting_id)
-    if string_find(setting_id, "plugin_wheel_", 1, true) or string_find(setting_id, "chat_", 1, true) == 1 then
-        mod.setting_dirty = true
+-- Every setting feeds into the wheel options: slot commands, command toggles, chat toggles and messages.
+-- Refilling also restores the default text of a field left empty when "Customize Text" is switched off.
+mod.on_setting_changed = function()
+    mod.setting_dirty = true
+    default_messages_filled = _fill_default_messages()
+end
+
+mod.update = function()
+    if not default_messages_filled then
+        default_messages_filled = _fill_default_messages()
     end
 end
 

@@ -156,9 +156,10 @@ local function install_darktide_table_helpers()
     end
 end
 
+-- Like DMF, only settings that are not saved yet get their default.
 local function apply_widget_defaults(widgets, store)
     for _, widget in ipairs(widgets) do
-        if widget.default_value ~= nil then
+        if widget.default_value ~= nil and store[widget.setting_id] == nil then
             store[widget.setting_id] = clone(widget.default_value)
         end
 
@@ -195,6 +196,8 @@ function Env.dialogue_extension(class_name, rules)
     }
 end
 
+-- opts.settings: saved settings the mod starts with (copied).
+-- opts.localization_ready (default true): whether the game's Localize returns text yet.
 -- opts.enabled (default true): mod state DMF applies right after loading.
 -- opts.gamepad: InputDevice.gamepad_active.
 -- opts.darktide_source: load the real smart tagging definitions from this checkout.
@@ -203,7 +206,7 @@ function Env.new(opts)
 
     local ctx = {
         log = {},
-        settings = {},
+        settings = clone(opts.settings or {}),
         hooks = {},
         safe_hooks = {},
         hooks_active = true,
@@ -213,6 +216,7 @@ function Env.new(opts)
         dialogue = {},
         player_unit = nil,
         ui_input = false,
+        localization_ready = opts.localization_ready ~= false,
     }
     local hooks, safe_hooks = ctx.hooks, ctx.safe_hooks
 
@@ -292,6 +296,10 @@ function Env.new(opts)
         return ctx.settings[setting_id]
     end
 
+    function mod:set(setting_id, value)
+        ctx.settings[setting_id] = value
+    end
+
     function mod:localize(key)
         return "L(" .. key .. ")"
     end
@@ -342,6 +350,10 @@ function Env.new(opts)
     })
     ALIVE = ctx.alive
     RESOLUTION_LOOKUP = { width = 1920, height = 1080 }
+    -- Like LocalizationManager.localize: "" until the game's strings are loaded.
+    Localize = function(key)
+        return ctx.localization_ready and "T(" .. key .. ")" or ""
+    end
     Managers = {
         chat = {
             connected_chat_channels = function()
@@ -376,11 +388,12 @@ function Env.new(opts)
         },
     }
 
+    -- dmf new_mod: data first (DMF writes the option defaults while initializing it), then the script.
     local mod_dir = assert(Env.mod_dir, "Env.mod_dir is not set")
     local data = dofile(mod_dir .. "/ForDaEmprah_data.lua")
 
-    dofile(mod_dir .. "/ForDaEmprah.lua")
     apply_widget_defaults(data.options.widgets, ctx.settings)
+    dofile(mod_dir .. "/ForDaEmprah.lua")
 
     local definitions = require("scripts/ui/hud/elements/smart_tagging/hud_element_smart_tagging_definitions")
 
@@ -541,6 +554,12 @@ function Env.new(opts)
     function ctx:press_keybind(command_id)
         if self.hooks_active then
             mod["keybind_" .. command_id]()
+        end
+    end
+    -- DMF calls mod.update every frame for enabled mods.
+    function ctx:update_mod()
+        if self.hooks_active and mod.update then
+            mod.update(0)
         end
     end
 
